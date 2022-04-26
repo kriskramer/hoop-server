@@ -39,8 +39,8 @@ function processGame(game) {
         // setInterval(async () => {
         //     await getPbp(game.gameId, game.period.current);
         // }, 15000);
-        console.log(game.gameId);
-        console.log(game.period.current);
+        //console.log(game.gameId);
+        //console.log(game.period.current);
         const response = getPbp(game.gameId, game.period.current);
     }
 
@@ -77,14 +77,30 @@ const getPbp = async (gameId, period) => {
         allGamesPbp[gameId] = response.data.plays;
     }
 
-    response.data.plays.forEach(p => {
-        if (allGamesPbp[gameId].some(e => {if (e.description == p.description && e.clock == p.clock && e.hTeamScore == p.hTeamScore && e.vTeamScore == p.vTeamScore) return true;})) {
-            // already exists in list
-        } else {
-            allGamesPbp[gameId].push(p);
-            firebaseDb.writePbpData(gameId, period, p);
-        }
-    });
+    var newPlays = response.data.plays;
+    var existingPlays = allGamesPbp[gameId];
+    // console.log(newPlays);
+    // console.log(existingPlays);
+
+    var difference = newPlays.filter(item1 => !existingPlays.some(item2 => (item2.clock === item1.clock 
+                                                                            && item2.eventMsgType === item1.eventMsgType
+                                                                            && item2.personId === item1.personId
+                                                                            && item2.description === item1.description)));
+    console.log(difference);
+    console.log(`new ${newPlays.length} - existing ${existingPlays.length} = diff ${difference.length}`)
+    difference.forEach(p => {
+        allGamesPbp[gameId].push(p);
+        firebaseDb.writePbpData(gameId, period, p);
+    })
+
+    // response.data.plays.forEach(p => {
+    //     if (allGamesPbp[gameId].some(e => {if (e.description == p.description && e.clock == p.clock && e.hTeamScore == p.hTeamScore && e.vTeamScore == p.vTeamScore) return true;})) {
+    //         // already exists in list
+    //     } else {
+    //         allGamesPbp[gameId].push(p);
+    //         firebaseDb.writePbpData(gameId, period, p);
+    //     }
+    // });
 
 }
 
@@ -93,4 +109,4 @@ const getPbp = async (gameId, period) => {
 getGames();
 setInterval(async () => {
     await getGames();
-}, 15000);
+}, 12000);
