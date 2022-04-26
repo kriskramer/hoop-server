@@ -1,30 +1,33 @@
 const gamesAPI = require('./games');
-const pbp = require('./pbp');
 const pbpAPI = require('./pbp');
+const firebaseDb = require('./firebase');
+
+
+var allGamesPbp = {};
 
 const getGames = async () => {
+
     const response = await gamesAPI.getGamesByDate();
+    if (!response) {
+        console.log('No games returned');
+    }
     console.log(response.data.numGames);
     //console.log(response.data.games);
 
     //loop through json array of games
     response.data.games.forEach(obj => {
         processGame(obj);
-        Object.entries(obj).forEach(([key, value]) => {
-            //console.log(`${key} ${value}`);
-        });
+        // Object.entries(obj).forEach(([key, value]) => {
+        //     console.log(`${key} ${value}`);
+        // });
         console.log('-------------------');
     });
 }
 
-const getPbp = async (gameId, period) => {
-    const response = await pbpAPI.getPbp(gameId, period);
-    console.log(response.data);
-
-}
-
 function processGame(game) {
     console.log(game.gameId);
+    console.log(`${game.vTeam.triCode} ${game.vTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
+    console.log(game.startTimeEastern);
     
     //console.log(game);
     if (game.isGameActivated) {
@@ -33,10 +36,61 @@ function processGame(game) {
         console.log(`${game.vTeam.triCode} ${game.vTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
 
         //if the game has started, pull the play-by-play data
+        // setInterval(async () => {
+        //     await getPbp(game.gameId, game.period.current);
+        // }, 15000);
+        console.log(game.gameId);
+        console.log(game.period.current);
         const response = getPbp(game.gameId, game.period.current);
     }
+
+    //    // For testing
+    //    const response1 = getPbp(game.gameId, 1);
+    //    const response2 = getPbp(game.gameId, 2);
+    //    const response3 = getPbp(game.gameId, 3);
+    //    const response4 = getPbp(game.gameId, 4);
 }
+
+
+const getPbp = async (gameId, period) => {
+    const response = await pbpAPI.getPbp(gameId, period);
+    //console.log(response.data);
+
+    if (!response) {
+        console.log('getPbp response is null');
+        return null;
+    }
+    if (!response.data) {
+        console.log('getPbp response.data is null');
+        return null;
+    }
+    if (!response.data.plays) {
+        console.log('getPbp response.data.plays is null');
+        return null;
+    }
+
+    if (response.data.plays.length > 1) {
+        //console.log(response.data.plays.length);
+    }
+
+    if (!allGamesPbp[gameId]) {
+        allGamesPbp[gameId] = response.data.plays;
+    }
+
+    response.data.plays.forEach(p => {
+        if (allGamesPbp[gameId].some(e => {if (e.description == p.description && e.clock == p.clock && e.hTeamScore == p.hTeamScore && e.vTeamScore == p.vTeamScore) return true;})) {
+            // already exists in list
+        } else {
+            allGamesPbp[gameId].push(p);
+            firebaseDb.writePbpData(gameId, period, p);
+        }
+    });
+
+}
+
 
 // Need a timer to load the day's games every 30-60 seconds
 getGames();
-
+setInterval(async () => {
+    await getGames();
+}, 15000);
