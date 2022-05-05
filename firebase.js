@@ -23,6 +23,7 @@ const database = fbdb.getDatabase(app);
 module.exports = {
     writePbpData: (gameId, period, pbp) => {
         fbdb.set(fbdb.ref(database, 'gameFeed/' + gameId + '/' + new Date().getTime()), {
+          type: "1",
           period: period,
           clock: pbp.clock,
           description: pbp.description,
@@ -35,7 +36,31 @@ module.exports = {
           isVideoAvailable: pbp.isVideoAvailable,
           formatted: pbp.formatted
         });
-      }
+      },
+    getPbpData: (gameId) => {
+        // const feed = fbdb.ref(database, 'gameFeed/' + gameId);
+        // fbdb.onValue(feed, (snapshot) => {
+        //     const data = snapshot.val();
+        //     return data;
+        // });
+
+        const dbRef = fbdb.ref(fbdb.getDatabase());
+        fbdb.get(fbdb.child(dbRef, `gameFeed/${gameId}`)).then((snapshot) => {
+        if (snapshot.exists()) {
+            //console.log(snapshot.val());
+        } else {
+            console.log("No data available");
+        }
+        }).catch((error) => {
+            console.error(error);
+        });
+    },
+    writeGameData: (gameId, data) => {
+        fbdb.set(fbdb.ref(database, 'gameData/' + gameId), {
+          data
+        });
+      },
+
 }
 
 

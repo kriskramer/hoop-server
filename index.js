@@ -1,6 +1,7 @@
 const gamesAPI = require('./games');
 const pbpAPI = require('./pbp');
 const firebaseDb = require('./firebase');
+const { getGameBoxScore } = require('./games');
 
 
 var allGamesPbp = {};
@@ -24,6 +25,7 @@ const getGames = async () => {
     });
 }
 
+
 function processGame(game) {
     console.log(game.gameId);
     console.log(`${game.vTeam.triCode} ${game.vTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
@@ -35,22 +37,18 @@ function processGame(game) {
         console.log(`${game.period.current} - ${game.clock}`);
         console.log(`${game.vTeam.triCode} ${game.vTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
 
-        //if the game has started, pull the play-by-play data
-        // setInterval(async () => {
-        //     await getPbp(game.gameId, game.period.current);
-        // }, 15000);
-        //console.log(game.gameId);
-        //console.log(game.period.current);
-        const response = getPbp(game.gameId, game.period.current);
+        if (game.period.current > 0) {
+            getBoxScore(game);
+            getPbp(game.gameId, game.period.current);
+        }
     }
-
-    //    // For testing
-    //    const response1 = getPbp(game.gameId, 1);
-    //    const response2 = getPbp(game.gameId, 2);
-    //    const response3 = getPbp(game.gameId, 3);
-    //    const response4 = getPbp(game.gameId, 4);
 }
 
+const getBoxScore = async (game) => {
+    const response = await gamesAPI.getGameBoxScore(game.gameId);
+    //console.log(response.data);
+    firebaseDb.writeGameData(game.gameId, response.data);
+}
 
 const getPbp = async (gameId, period) => {
     const response = await pbpAPI.getPbp(gameId, period);
@@ -73,8 +71,14 @@ const getPbp = async (gameId, period) => {
         //console.log(response.data.plays.length);
     }
 
+    // Need a better way to do this...
+    //var existingData = await firebaseDb.getPbpData(gameId);
+
     if (!allGamesPbp[gameId]) {
         allGamesPbp[gameId] = response.data.plays;
+        allGamesPbp[gameId].forEach(p => {
+            firebaseDb.writePbpData(gameId, period, p);    
+        })
     }
 
     var newPlays = response.data.plays;
@@ -86,7 +90,7 @@ const getPbp = async (gameId, period) => {
                                                                             && item2.eventMsgType === item1.eventMsgType
                                                                             && item2.personId === item1.personId
                                                                             && item2.description === item1.description)));
-    console.log(difference);
+    //console.log(difference);
     console.log(`new ${newPlays.length} - existing ${existingPlays.length} = diff ${difference.length}`)
     difference.forEach(p => {
         allGamesPbp[gameId].push(p);
@@ -109,4 +113,4 @@ const getPbp = async (gameId, period) => {
 getGames();
 setInterval(async () => {
     await getGames();
-}, 12000);
+}, 16000);
