@@ -10,7 +10,7 @@ const BASE_URL_GAMES = `http://data.nba.net/10s/prod/v1/${dt}/scoreboard.json`;
 //const BASE_URL = "https://api.fantasynerds.com/v1/nba/news?apikey=YHRWRSXVDX7AHC7Y24U3";
 
 module.exports = {
-    getGamesByDate: () => axios({
+    getTodayGames: () => axios({
         method:"GET",
         url : BASE_URL_GAMES
         // headers: {
@@ -19,12 +19,23 @@ module.exports = {
         //     //"x-rapidapi-key": "yourapikey"
         // },
     }),
-    getGameBoxScore: getBoxScore
+    getGameBoxScore: getBoxScore,
+    getGamesByDate: getGamesByDate
 }
 
-function getBoxScore(gameId) {
+function getBoxScore(game) {
+    var gameId = game["gameId"];
+    var str = game["gameUrlCode"].split('/');
+    var dt = str[0];
     const url = `http://data.nba.net/prod/v1/${dt}/${gameId}_boxscore.json`;
     console.log(url);
+    return axios.get(url).catch(function (err) {
+        console.log('Error on pbp call - ' + url + '    ' + err);
+    })
+}
+
+function getGamesByDate(dt) {
+    const url = `http://data.nba.net/10s/prod/v1/${dt}/scoreboard.json`;
     return axios.get(url).catch(function (err) {
         console.log('Error on pbp call - ' + url + '    ' + err);
     })

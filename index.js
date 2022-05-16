@@ -2,13 +2,13 @@ const gamesAPI = require('./games');
 const pbpAPI = require('./pbp');
 const firebaseDb = require('./firebase');
 const { getGameBoxScore } = require('./games');
+const moment = require("moment");
 
 
 var allGamesPbp = {};
 
 const getGames = async () => {
-
-    const response = await gamesAPI.getGamesByDate();
+    const response = await gamesAPI.getTodayGames();
     if (!response) {
         console.log('No games returned');
     }
@@ -25,34 +25,58 @@ const getGames = async () => {
     });
 }
 
+const getPreviousGames = async () => {
+    // Get the previous 3 days worth of games, in case the app crashes overnight.
+    for (var i = 1; i <= 5; i++) {
+        let dt = moment().add(-i, 'days').format("YYYYMMDD");
+        const response = await gamesAPI.getGamesByDate(dt);
+        if (response.data != null) {
+            response.data.games.forEach(obj => {
+                processGame(obj);
+            });    
+        }    
+    }
+}
+
+const getUpcomingGames = async () => {
+    // Get the next 5 days worth of games
+    for (var i = 1; i <= 5; i++) {
+        let dt = moment().add(i, 'days').format("YYYYMMDD");
+        const response = await gamesAPI.getGamesByDate(dt);
+        if (response.data != null) {
+            response.data.games.forEach(obj => {
+                processGame(obj);
+            });    
+        }    
+    }
+}
 
 function processGame(game) {
     console.log(game.gameId);
     console.log(`${game.vTeam.triCode} ${game.vTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
     console.log(game.startTimeEastern);
     
+    getBoxScore(game);
     //console.log(game);
     if (game.isGameActivated) {
         console.log("Game started!");
         console.log(`${game.period.current} - ${game.clock}`);
-        console.log(`${game.vTeam.triCode} ${game.vTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
+        //console.log(`${game.vTeam.triCode} ${game.vTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
 
         if (game.period.current > 0) {
-            getBoxScore(game);
+            //getBoxScore(game);
             getPbp(game.gameId, game.period.current);
         }
     }
 }
 
 const getBoxScore = async (game) => {
-    const response = await gamesAPI.getGameBoxScore(game.gameId);
-    //console.log(response.data);
+    const response = await gamesAPI.getGameBoxScore(game);
     firebaseDb.writeGameData(game.gameId, response.data);
 }
 
 const getPbp = async (gameId, period) => {
     const response = await pbpAPI.getPbp(gameId, period);
-    //console.log(response.data);
 
     if (!response) {
         console.log('getPbp response is null');
@@ -110,6 +134,8 @@ const getPbp = async (gameId, period) => {
 
 
 // Need a timer to load the day's games every 30-60 seconds
+getPreviousGames();
+getUpcomingGames();
 getGames();
 setInterval(async () => {
     await getGames();
