@@ -6,28 +6,35 @@ const moment = require("moment");
 
 
 var allGamesPbp = {};
+var counter = 0;
 
 const getGames = async () => {
-    const response = await gamesAPI.getTodayGames();
-    if (!response) {
-        console.log('No games returned');
+    try {
+        const response = await gamesAPI.getTodayGames();
+        if (!response) {
+            console.log('No games returned');
+        }
+        console.log(response.data.numGames);
+        //console.log(response.data.games);
+    
+        //loop through json array of games
+        response.data.games.forEach(obj => {
+            processGame(obj);
+            // Object.entries(obj).forEach(([key, value]) => {
+            //     console.log(`${key} ${value}`);
+            // });
+            console.log('-------------------');
+        });    
     }
-    console.log(response.data.numGames);
-    //console.log(response.data.games);
-
-    //loop through json array of games
-    response.data.games.forEach(obj => {
-        processGame(obj);
-        // Object.entries(obj).forEach(([key, value]) => {
-        //     console.log(`${key} ${value}`);
-        // });
-        console.log('-------------------');
-    });
+    catch (err) 
+    {
+        console.log(err);
+    }
 }
 
 const getPreviousGames = async () => {
     // Get the previous 3 days worth of games, in case the app crashes overnight.
-    for (var i = 1; i <= 5; i++) {
+    for (var i = 1; i <= 15; i++) {
         let dt = moment().add(-i, 'days').format("YYYYMMDD");
         const response = await gamesAPI.getGamesByDate(dt);
         if (response.data != null) {
@@ -76,7 +83,13 @@ const getBoxScore = async (game) => {
 }
 
 const getPbp = async (gameId, period) => {
-    const response = await pbpAPI.getPbp(gameId, period);
+    var response;
+    try {
+        response = await pbpAPI.getPbp(gameId, period);
+    }
+    catch (err) {
+        console.log(err);
+    }
 
     if (!response) {
         console.log('getPbp response is null');
@@ -110,6 +123,7 @@ const getPbp = async (gameId, period) => {
     // console.log(newPlays);
     // console.log(existingPlays);
 
+    // Look for new plays, i.e. plays that aren't already in the existingplays collection
     var difference = newPlays.filter(item1 => !existingPlays.some(item2 => (item2.clock === item1.clock 
                                                                             && item2.eventMsgType === item1.eventMsgType
                                                                             && item2.personId === item1.personId
@@ -139,4 +153,6 @@ getUpcomingGames();
 getGames();
 setInterval(async () => {
     await getGames();
-}, 16000);
+    console.log('getGames call # ' + counter++);
+    console.log(new Date());
+}, 18000);
