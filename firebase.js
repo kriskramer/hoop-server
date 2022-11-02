@@ -21,20 +21,14 @@ const app = fb.initializeApp(firebaseConfig);
 const database = fbdb.getDatabase(app);
 
 module.exports = {
-    writePbpData: (gameId, period, pbp) => {
-        fbdb.set(fbdb.ref(database, 'gameFeed/' + gameId + '/' + new Date().getTime()), {
-          type: "1",
-          period: period,
-          clock: pbp.clock,
-          description: pbp.description,
-          hTeamScore: pbp.hTeamScore,
-          vTeamScore: pbp.vTeamScore,
-          eventMsgType: pbp.eventMsgType,
-          personId: pbp.personId,
-          teamId: pbp.teamId,
-          isScoreChange: pbp.isScoreChange,
-          isVideoAvailable: pbp.isVideoAvailable,
-          formatted: pbp.formatted
+    writePbpData: (gameId, pbp) => {
+        fbdb.set(fbdb.ref(database, 'gameFeed22/' + gameId + '/' + new Date().getTime()), {
+          pbp
+        });
+      },
+    writePbpData22: (gameId, pbp) => {
+        fbdb.set(fbdb.ref(database, 'gamePbp22/' + gameId), {
+          pbp
         });
       },
     getPbpData: (gameId) => {
@@ -55,8 +49,18 @@ module.exports = {
             console.error(error);
         });
     },
-    writeGameData: (gameId, data) => {
-        fbdb.set(fbdb.ref(database, 'gameData/' + gameId), {
+    // writeGameData: (gameId, data) => {
+    //     fbdb.set(fbdb.ref(database, 'gameData/' + gameId), {
+    //       data
+    //     });
+    //   },
+    writeGameData22: (gameId, data) => {
+        fbdb.set(fbdb.ref(database, 'gameData22/' + gameId), {
+          data
+        });
+      },
+    writeGameHeader22: (gameId, data) => {
+        fbdb.set(fbdb.ref(database, 'gameHeader22/' + gameId), {
           data
         });
       },
