@@ -4,13 +4,16 @@
   "description": "Server app for hoop fan",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "test": "node --test"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^0.26.1",
-    "firebase": "^9.6.11",
-    "moment": "^2.29.3"
+    "axios": "^1.20.0",
+    "firebase-admin": "^14.5.0"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

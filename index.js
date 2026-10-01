@@ -1,166 +1,135 @@
-const gamesAPI = require('./games');
-const pbpAPI = require('./pbp');
-const firebaseDb = require('./firebase');
-const { getGameBoxScore } = require('./games');
-const moment = require("moment");
+const nba = require('./games');
+const { etDate } = require('./dates');
 
+const POLL_INTERVAL_MS = 14000;
+const BACKFILL_DAYS = 5;
 
-var allGamesPbp = {};
-var counter = 0;
+const STATUS_LIVE = 2;
+const STATUS_FINAL = 3;
 
-const getGames = async () => {
-    try {
-        const response = await gamesAPI.getTodayGames2();
-        if (!response) {
-            console.log('No games returned');
-        }
-        //console.log(response.data.scoreboard.games.length);
-        //console.log(response.data.scoreboard.games);
-    
-        //loop through json array of games
-        response.data.scoreboard.games.forEach(game => {
-            processGame(game);
-            // Object.entries(obj).forEach(([key, value]) => {
-            //     console.log(`${key} ${value}`);
-            // });
-            console.log('-------------------');
-        });    
-    }
-    catch (err) 
-    {
-        console.log(err);
-    }
+// Games whose final box score and play-by-play have been saved; they never change again.
+const finalizedGames = new Set();
+let pollCount = 0;
+let polling = false;
+
+// Firebase is required lazily so the pure helpers can be tested without credentials.
+const db = () => require('./firebase');
+
+function needsDetails(game) {
+    return game.gameStatus === STATUS_LIVE || game.gameStatus === STATUS_FINAL;
 }
 
-const getPreviousGames = async () => {
-    // Get the previous 3 days worth of games, in case the app crashes overnight.
-    for (var i = 1; i <= 15; i++) {
-        let dt = moment().add(-i, 'days').format("YYYY-MM-DD");
-        const response = await gamesAPI.getGamesByDate(dt);
-        if (response.data != null) {
-            response.data.scoreboard.games.forEach(obj => {
-                processGame(obj);
-            });    
-        }    
+async function processGame(game) {
+    if (finalizedGames.has(game.gameId)) {
+        return;
     }
-}
 
-const getUpcomingGames = async () => {
-    // Get the next 5 days worth of games
-    for (var i = 1; i <= 5; i++) {
-        let dt = moment().add(i, 'days').format("YYYY-MM-DD");
-        const response = await gamesAPI.getGamesByDate(dt);
-        if (response.data != null) {
-            response.data.scoreboard.games.forEach(obj => {
-                processGame(obj);
-            });    
-        }    
-    }
-}
+    console.log(`Updating game header -- ${game.gameId} - ${game.gameEt}`);
+    await db().writeGameHeader(game.gameId, game);
 
-function processGame(game) {
-    console.log(game.gameId);
-    console.log(`${game.awayTeam.teamTricode} ${game.awayTeam.score} - ${game.homeTeam.teamTricode} ${game.homeTeam.score}`);
-    console.log(game.gameEt);
-    firebaseDb.writeGameHeader22(game.gameId, game);
-    
-    getBoxScore(game);
-    //firebaseDb.writeGameData22(game.gameId, game);
-    //console.log(game);
-
-    if (game.gameStatus == 2) {
-        console.log("Game on!");
+    if (game.gameStatus === STATUS_LIVE) {
+        console.log('Game on!');
         console.log(`${game.period} - ${game.gameClock} - ${game.gameStatusText}`);
-        //console.log(`${game.awayTeam.triCode} ${game.awayTeam.score} - ${game.hTeam.triCode} ${game.hTeam.score}`);
-
-        if (game.period > 0) {
-            getPbp(game.gameId);
-        }
+        console.log(`${game.awayTeam.teamTricode} ${game.awayTeam.score} - ${game.homeTeam.teamTricode} ${game.homeTeam.score}`);
     }
-    console.log(" ");
+
+    if (!needsDetails(game)) {
+        return;
+    }
+
+    await Promise.all([
+        saveBoxScore(game),
+        game.period > 0 ? savePbp(game.gameId) : null,
+    ]);
+
+    // Only mark final once both writes succeeded, so a failure is retried on the next poll.
+    if (game.gameStatus === STATUS_FINAL) {
+        finalizedGames.add(game.gameId);
+    }
 }
 
-const getBoxScore = async (game) => {
-    const response = await gamesAPI.getGameBoxScore(game.gameId);
-    if (response != null) {
-        if (response.data != null) {
-            firebaseDb.writeGameData22(game.gameId, response.data);
+async function processGames(games) {
+    const results = await Promise.allSettled(games.map(processGame));
+    results.forEach((result, i) => {
+        if (result.status === 'rejected') {
+            console.error(`Failed to process game ${games[i].gameId}:`, result.reason.message);
         }
-    }
+    });
 }
 
-const getPbp = async (gameId) => {
-    var response;
+async function saveBoxScore(game) {
+    const response = await nba.getGameBoxScore(game.gameId);
+    console.log(`Updating game box score -- ${game.gameId} - ${game.gameEt}`);
+    await db().writeGameData(game.gameId, response.data);
+}
+
+async function savePbp(gameId) {
+    const response = await nba.getPbp(gameId);
+    if (!response.data?.game) {
+        throw new Error(`Play-by-play response for ${gameId} has no game data`);
+    }
+    await db().writePbpData(gameId, response.data.game);
+    console.log(`Write PBP data - ${gameId}`);
+}
+
+async function loadGamesForDate(date) {
     try {
-        response = await pbpAPI.getPbp(gameId);
+        const response = await nba.getGamesByDate(date);
+        const games = response.data?.scoreboard?.games;
+        if (!Array.isArray(games)) {
+            console.error(`No games in scoreboard response for ${date}`);
+            return;
+        }
+        await processGames(games);
+    } catch (err) {
+        console.error(`Failed to load games for ${date}:`, err.message);
     }
-    catch (err) {
-        console.log(err);
-    }
-
-    if (!response) {
-        console.log('getPbp response is null');
-        return null;
-    }
-    if (!response.data) {
-        console.log('getPbp response.data is null');
-        return null;
-    }
-    if (!response.data.game) {
-        console.log('getPbp response.data.plays is null');
-        return null;
-    }
-
-    //if (response.data.game.actions.length > 1) {
-        //console.log(response.data.plays.length);
-    //}
-
-    
-    if (!allGamesPbp[gameId]) {
-        allGamesPbp[gameId] = response.data.game.actions;
-        allGamesPbp[gameId].forEach(p => {
-            firebaseDb.writePbpData(gameId, p);    
-        })
-    }
-
-    // New method to save the PBP data separately from chat and everything else
-    firebaseDb.writePbpData22(gameId, response.data.game);
-
-    var newPlays = response.data.game.actions;
-    var existingPlays = allGamesPbp[gameId];
-    // console.log(newPlays);
-    // console.log(existingPlays);
-
-    // Look for new plays, i.e. plays that aren't already in the existingplays collection
-    var difference = newPlays.filter(item1 => !existingPlays.some(item2 => (item2.clock === item1.clock 
-                                                                            && item2.eventMsgType === item1.eventMsgType
-                                                                            && item2.personId === item1.personId
-                                                                            && item2.description === item1.description)));
-    //console.log(difference);
-    console.log(`${gameId} == new ${newPlays.length} - existing ${existingPlays.length} = diff ${difference.length}`)
-    difference.forEach(p => {
-        allGamesPbp[gameId].push(p);
-        firebaseDb.writePbpData(gameId, p);
-    })
-
-    // response.data.plays.forEach(p => {
-    //     if (allGamesPbp[gameId].some(e => {if (e.description == p.description && e.clock == p.clock && e.hTeamScore == p.hTeamScore && e.awayTeamScore == p.awayTeamScore) return true;})) {
-    //         // already exists in list
-    //     } else {
-    //         allGamesPbp[gameId].push(p);
-    //         firebaseDb.writePbpData(gameId, p);
-    //     }
-    // });
-
 }
 
+// Catch up on recent games (in case the server was down) and pre-load upcoming ones.
+async function backfill() {
+    for (let i = 1; i <= BACKFILL_DAYS; i++) {
+        await loadGamesForDate(etDate(-i));
+        await loadGamesForDate(etDate(i));
+    }
+}
 
-// Need a timer to load the day's games every 30-60 seconds
-getPreviousGames();
-getUpcomingGames();
-getGames();
-setInterval(async () => {
-   await getGames();
-   console.log('getGames call # ' + counter++);
-   console.log(new Date());
-}, 14000);
+async function pollToday() {
+    // Skip this tick if the previous poll is still running, so polls never overlap.
+    if (polling) {
+        console.log('Previous poll still running, skipping');
+        return;
+    }
+    polling = true;
+    try {
+        const response = await nba.getTodayGames();
+        const games = response.data?.scoreboard?.games;
+        if (!Array.isArray(games)) {
+            console.error('No games in today\'s scoreboard response');
+            return;
+        }
+        await processGames(games);
+        console.log(`getGames call # ${pollCount++} - ${new Date().toISOString()}`);
+    } catch (err) {
+        console.error('Failed to poll today\'s games:', err.message);
+    } finally {
+        polling = false;
+    }
+}
+
+function main() {
+    // Last line of defense: log instead of letting the long-running poller crash.
+    process.on('unhandledRejection', (reason) => {
+        console.error('Unhandled rejection:', reason);
+    });
+
+    backfill();
+    pollToday();
+    setInterval(pollToday, POLL_INTERVAL_MS);
+}
+
+if (require.main === module) {
+    main();
+}
+
+module.exports = { needsDetails };
