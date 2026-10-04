@@ -21,6 +21,8 @@ const finalTracking = new Map();
 const writtenPlays = new Map();
 // eventId -> JSON of the box score last written, to skip unchanged writes.
 const writtenBoxScores = new Map();
+// eventId -> JSON of the extras last written, to skip unchanged writes.
+const writtenExtras = new Map();
 let pollCount = 0;
 // The last poll's schedule decision: { mode: 'fast' | 'idle', reason }.
 let lastDecision = {};
@@ -58,6 +60,7 @@ async function processGame(event) {
         finalTracking.delete(event.id);
         writtenPlays.delete(event.id);
         writtenBoxScores.delete(event.id);
+        writtenExtras.delete(event.id);
         console.log(`Game settled, no longer refreshing -- ${event.id}`);
     }
 }
@@ -79,7 +82,6 @@ function isSettled(event, changed, now) {
 async function saveDetails(eventId) {
     const { data } = await espn.getSummary(eventId);
 
-    // The summary also carries news, odds, standings, etc.; store only the game data.
     const boxScore = {
         boxscore: data.boxscore ?? null,
         leaders: data.leaders ?? null,
@@ -93,12 +95,35 @@ async function saveDetails(eventId) {
         console.log(`Updating game box score -- ${eventId}`);
     }
 
+    await saveExtras(eventId, data);
+
     // Plays are absent until tip-off.
     let playsChanged = false;
     if (Array.isArray(data.plays) && data.plays.length > 0) {
         playsChanged = await savePlays(eventId, buildPlayNodes(data.plays, data.winprobability));
     }
     return boxChanged || playsChanged;
+}
+
+// Injuries, odds, standings, and news. Kept apart from the box score so clients listening to
+// live stats don't re-download them on every update. Not counted as a change for settling,
+// because league news keeps changing long after a game ends.
+async function saveExtras(eventId, data) {
+    const extras = {
+        injuries: data.injuries ?? null,
+        pickcenter: data.pickcenter ?? null,
+        odds: data.odds ?? null,
+        againstTheSpread: data.againstTheSpread ?? null,
+        standings: data.standings ?? null,
+        news: data.news ?? null,
+    };
+    const json = JSON.stringify(extras);
+    if (writtenExtras.get(eventId) === json) {
+        return;
+    }
+    await db().writeGameExtras(eventId, extras);
+    writtenExtras.set(eventId, json);
+    console.log(`Updating game extras -- ${eventId}`);
 }
 
 async function savePlays(eventId, nodes) {

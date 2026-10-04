@@ -53,6 +53,8 @@ The API is public, needs no key or special headers, and returns `Cache-Control: 
 
 Games are identified by **ESPN event id** (for example `401811026`), which is the key for every Firebase path.
 
+[espn-data.md](espn-data.md) describes the stored fields in detail, along with what else ESPN offers.
+
 This replaced the NBA's own feeds (cdn.nba.com and stats.nba.com) after cdn.nba.com began blocking server requests in June 2026.
 
 ## Runtime flow
@@ -81,7 +83,8 @@ sequenceDiagram
             Idx->>DB: gameHeaders/{id}
             opt game is live or final and still settling
                 Idx->>ESPN: summary
-                Idx->>DB: gameBoxScores/{id}
+                Idx->>DB: gameBoxScores/{id}, if changed
+                Idx->>DB: gameExtras/{id}, if changed
                 Idx->>DB: gamePlays/{id}: only new or changed plays
             end
         end
@@ -93,7 +96,7 @@ sequenceDiagram
 
 Each poll schedules the next one only after it finishes, so polls never overlap even when ESPN is slow. With the 10-second request timeout, a stuck request can delay a poll but can't block the loop forever.
 
-Each live game costs one summary request per poll, plus two scoreboard requests per poll in total.
+Each live or settling game costs one summary request per poll, plus two scoreboard requests per poll in total. If a poll throws unexpectedly, `pollLoop` logs it and schedules the next poll in `RETRY_MS` (1 min), so the loop never stops.
 
 ### Adaptive polling
 
@@ -126,11 +129,11 @@ Outside game hours this cuts ESPN traffic from about 500 requests per hour to ab
 | ESPN `state` | `completed` | `gameState` | Server behavior |
 | --- | --- | --- | --- |
 | `pre` | | `other` | Writes the header only |
-| `in` | | `live` | Writes the header, box score, and plays on every poll |
+| `in` | | `live` | Writes the header, box score, extras, and plays on every poll |
 | `post` | `true` | `final` | Keeps refreshing until the data settles (below), then adds the game to `finalizedGames` and skips it from then on |
 | `post` | `false` | `other` | Postponed or canceled: writes the header only |
 
-On every refresh, box scores are only written if they changed, and plays only send what changed, so polls with no changes write nothing.
+The header is rewritten on every poll for every game not yet in `finalizedGames`. The box score and extras are compared with the JSON last written (`writtenBoxScores`, `writtenExtras`) and only rewritten when they changed, and plays only send what changed.
 
 #### Settling after the final buzzer
 
@@ -144,12 +147,14 @@ While any game is settling, the scheduler stays in fast mode. A game is added to
 
 ## Firebase data model
 
-The server writes three top-level paths, each keyed by ESPN event id. Headers and box scores are replaced whole (`set`) on each write; plays are written incrementally (see below). All values pass through `toFirebaseSafe` first.
+The server writes four top-level paths, each keyed by ESPN event id. Headers, box scores, and extras are replaced whole (`set`) on each write; plays are written incrementally (see below). All values pass through `toFirebaseSafe` first.
 
 ```
 gameHeaders/{eventId}         = <scoreboard event>                 ~13 KB
 gameBoxScores/{eventId}       = { boxscore, leaders, gameInfo }    ~40 KB
 gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per play
+gameExtras/{eventId}          = { injuries, pickcenter, odds,
+                                  againstTheSpread, standings, news }  ~45 KB
 ```
 
 - **`gameHeaders`** holds ESPN's scoreboard `event` as-is: teams, scores, line scores, status (`status.type.shortDetail` is a display string such as "Q3 4:12"), leaders, broadcasts, and venue.
@@ -158,6 +163,7 @@ gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per p
   - **Key**: the play's `sequenceNumber`, zero-padded to six digits (`000142`). Sequence numbers are unique within a game and never change.
   - **`order`**: the play's position in ESPN's list. **Clients must sort by `order`, not by key.** ESPN lists plays in game-clock order, but sequence numbers follow the order plays were entered, so a play logged late has a higher number than the plays around it (5 of 6 games checked had such plays).
   - **`winProbability`**: `{ homeWinPercentage, tiePercentage }` for that play, or `null`.
+- **`gameExtras`** holds the summary's injuries, betting lines, standings, and league news. It's separate from `gameBoxScores` so live box score listeners don't re-download it, and its changes don't delay [settling](#settling-after-the-final-buzzer). See [espn-data.md](espn-data.md#injuries-odds-standings-and-news-gameextras).
 
 ### Incremental play writes
 
@@ -168,24 +174,25 @@ gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per p
 - plays whose `order` shifted because a late-logged play was inserted before them,
 - `null` for plays ESPN removed.
 
-Polls with no changes send nothing. The first write for a game after startup replaces the whole node, which also clears any stale plays from before a restart. The snapshot only advances after a successful write, so a failed write is retried on the next poll, and it's discarded once the game is final.
+Polls with no play changes send nothing to `gamePlays`. The first write for a game after startup replaces the whole node, which also clears any stale plays from before a restart. The snapshot only advances after a successful write, so a failed write is retried on the next poll, and it's discarded once the game has settled.
 
 Replaying a real game (506 plays) poll by poll sent 371 KB in total, averaging 2.8 plays per update. The largest update was 68 plays, after a late-logged play was inserted mid-list. Rewriting the whole node on every poll would have sent the full node (up to about 290 KB) each time.
 
-The rest of the summary (news, odds, standings, injuries, and so on) is dropped. The old NBA-format paths (`gameHeader22`, `gameData22`, `gamePbp22`) are no longer written.
+The rest of the summary (series, recap article, videos, and so on) is dropped. The old NBA-format paths (`gameHeader22`, `gameData22`, `gamePbp22`) are no longer written.
 
 ## Error handling
 
 The server runs unattended, so one bad response or failed write must not stop it:
 
 - `processGames` uses `Promise.allSettled`, so one game's failure is logged and the rest of the batch continues.
-- `backfill` and `poll` catch and log errors for each date, so one bad date doesn't stop the others.
+- `backfill` and `poll` catch and log errors for each date, so one bad date doesn't stop the others. A failed scoreboard request also tells the scheduler its view of the games is incomplete (see [Adaptive polling](#adaptive-polling)).
+- `pollLoop` catches anything else a poll throws and always schedules the next poll.
 - Response shapes are checked (`response.data?.events`) before use.
 - A process-level `unhandledRejection` handler logs anything that slips through instead of letting Node exit.
 
 ## Security
 
-The server authenticates with a service account through the Firebase Admin SDK, which bypasses database rules. That means the rules can (and should) deny client writes to `gameHeaders`, `gameBoxScores`, and `gamePlays` while still allowing reads.
+The server authenticates with a service account through the Firebase Admin SDK, which bypasses database rules. That means the rules can (and should) deny client writes to `gameHeaders`, `gameBoxScores`, `gamePlays`, and `gameExtras` while still allowing reads.
 
 ## Configuration
 
@@ -193,6 +200,8 @@ The server authenticates with a service account through the Firebase Admin SDK, 
 | --- | --- | --- |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Yes | Path to the Firebase service account key JSON |
 | `FIREBASE_DATABASE_URL` | No | Overrides the default `https://hoopfan-26b24-default-rtdb.firebaseio.com` |
+
+Setup guides: [FIREBASE_CREDENTIALS.md](FIREBASE_CREDENTIALS.md) (service account key) and [VM_SETUP.md](VM_SETUP.md) (hosting on a Compute Engine e2-micro VM).
 
 Tuning constants live at the top of `index.js` (`BACKFILL_DAYS`, and the final-game settling times) and `schedule.js` (`FAST_POLL_MIN_MS`/`FAST_POLL_MAX_MS` 12–14 s, `IDLE_POLL_MS` 30 min, `WARMUP_MS` 5 min, `LATE_TIP_GRACE_MS` 3 h, `RETRY_MS` 1 min).
 
@@ -211,6 +220,7 @@ The tests cover the pure helpers (`etDate`, `gameState`, `nextPollDelay`, `isSet
 ## Known limitations
 
 - **Unofficial API**: ESPN can change or rate-limit these endpoints without notice. Nothing has been tested yet during a live game.
-- **Single instance**: in-memory state (`finalizedGames`, the play snapshots) assumes one server process. Running two would duplicate writes, though the result would still be correct because writes are full overwrites.
-- **Full box score writes**: each live-game poll still rewrites the whole box score node (about 40 KB). Plays are incremental.
+- **Single instance**: in-memory state (`finalizedGames`, settling timers, and the last-written plays, box scores, and extras) assumes one server process. Running two would duplicate writes, though the data would still converge because each process writes ESPN's current state.
+- **Header writes every poll**: each unsettled game's header (about 13 KB) is rewritten on every poll, even when nothing changed, including `pre` games while idle.
+- **Whole-node box score writes**: the box score is skipped when unchanged, but during a live game it changes almost every poll, and each change rewrites the whole node (about 40 KB). Plays are incremental.
 - **Late-logged plays shift `order`**: inserting a play mid-list rewrites every later play whose `order` changed.

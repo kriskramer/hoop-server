@@ -18,6 +18,7 @@ const write = (path, value) => database.ref(path).set(toFirebaseSafe(value));
 module.exports = {
     writeGameHeader: (eventId, event) => write(`gameHeaders/${eventId}`, event),
     writeBoxScore: (eventId, boxScore) => write(`gameBoxScores/${eventId}`, boxScore),
+    writeGameExtras: (eventId, extras) => write(`gameExtras/${eventId}`, extras),
     // Replaces every play for a game; used for the first write after startup.
     replacePlays: (eventId, playsByKey) => write(`gamePlays/${eventId}`, playsByKey),
     // Atomically writes only the given plays (a null value deletes that play).
