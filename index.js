@@ -2,6 +2,9 @@ const espn = require('./espn');
 const { etDate } = require('./dates');
 const { buildPlayNodes, snapshot, diffPlays } = require('./plays');
 const { gameState, nextPollDelay, formatDelay, RETRY_MS } = require('./schedule');
+const { writeChanges } = require('./diff');
+const { ReactionCounter } = require('./reactions');
+const { toFirebaseSafe } = require('./sanitize');
 
 const BACKFILL_DAYS = 5;
 
@@ -19,10 +22,14 @@ const finalizedGames = new Set();
 const finalTracking = new Map();
 // eventId -> snapshot of the plays last written to Firebase, used to send only changes.
 const writtenPlays = new Map();
-// eventId -> JSON of the box score last written, to skip unchanged writes.
+// eventId -> header and box score last written (Firebase-safe), so each write sends only
+// the changed fields. A live header update is well under 1 KB this way instead of ~13 KB.
+const writtenHeaders = new Map();
 const writtenBoxScores = new Map();
 // eventId -> JSON of the extras last written, to skip unchanged writes.
 const writtenExtras = new Map();
+// eventId -> ReactionCounter for live and settling games.
+const reactionCounters = new Map();
 let pollCount = 0;
 // The last poll's schedule decision: { mode: 'fast' | 'idle', reason }.
 let lastDecision = {};
@@ -35,8 +42,10 @@ async function processGame(event) {
         return;
     }
 
-    console.log(`Updating game header -- ${event.id} - ${event.shortName} - ${event.date}`);
-    await db().writeGameHeader(event.id, event);
+    // Scheduled games rarely change, so most polls write nothing for them.
+    if (await writeTracked(writtenHeaders, 'gameHeaders', event.id, event)) {
+        console.log(`Updating game header -- ${event.id} - ${event.shortName} - ${event.date}`);
+    }
 
     const state = gameState(event);
     if (state === 'live') {
@@ -52,6 +61,10 @@ async function processGame(event) {
         return;
     }
 
+    // Games found by the startup backfill have long settled, so their totals are left alone.
+    if (Date.now() - Date.parse(event.date) < SETTLED_AFTER_START_MS) {
+        startCountingReactions(event.id);
+    }
     const changed = await saveDetails(event.id);
 
     // Only runs once the writes succeeded, so a failure is retried on the next poll.
@@ -59,10 +72,38 @@ async function processGame(event) {
         finalizedGames.add(event.id);
         finalTracking.delete(event.id);
         writtenPlays.delete(event.id);
+        writtenHeaders.delete(event.id);
         writtenBoxScores.delete(event.id);
         writtenExtras.delete(event.id);
+        stopCountingReactions(event.id);
         console.log(`Game settled, no longer refreshing -- ${event.id}`);
     }
+}
+
+// Writes `value` to `${root}/${eventId}`, sending only what changed since the last write
+// recorded in `written`. Returns whether anything was written.
+async function writeTracked(written, root, eventId, value) {
+    const safe = toFirebaseSafe(value);
+    const changed = await writeChanges(db(), `${root}/${eventId}`, written.get(eventId), safe);
+    // Only recorded after a successful write, so a failed write is retried in full.
+    written.set(eventId, safe);
+    return changed;
+}
+
+// Live and settling games keep gameReactionCounts up to date. Once a game settles, its
+// totals stay as they are.
+function startCountingReactions(eventId) {
+    if (reactionCounters.has(eventId)) return;
+    const counter = new ReactionCounter(eventId, db());
+    reactionCounters.set(eventId, counter);
+    counter.start();
+}
+
+function stopCountingReactions(eventId) {
+    const counter = reactionCounters.get(eventId);
+    if (!counter) return;
+    reactionCounters.delete(eventId);
+    counter.stop().catch((err) => console.error(`Failed to stop reaction counter -- ${eventId}:`, err.message));
 }
 
 // Decides whether a final game's data has stopped changing.
@@ -87,11 +128,8 @@ async function saveDetails(eventId) {
         leaders: data.leaders ?? null,
         gameInfo: data.gameInfo ?? null,
     };
-    const boxJson = JSON.stringify(boxScore);
-    const boxChanged = writtenBoxScores.get(eventId) !== boxJson;
+    const boxChanged = await writeTracked(writtenBoxScores, 'gameBoxScores', eventId, boxScore);
     if (boxChanged) {
-        await db().writeBoxScore(eventId, boxScore);
-        writtenBoxScores.set(eventId, boxJson);
         console.log(`Updating game box score -- ${eventId}`);
     }
 

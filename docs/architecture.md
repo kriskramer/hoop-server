@@ -1,6 +1,6 @@
-# Architecture
+| `post` | `false` | `other` | Postponed or canceled: writes the header when it changes || `post` | `true` | `final` | Keeps refreshing and counting reactions until the data settles (below), then adds the game to `finalizedGames` and skips it from then on || `in` | | `live` | Writes what changed in the header, box score, extras, and plays on every poll, and counts reactions || `pre` | | `other` | Writes the header when it changes |# Architecture
 
-hoop-server is a background worker for the Hoop Fan app. It has no HTTP API of its own: it polls ESPN's NBA data and mirrors scoreboards, box scores, and play-by-play into the Firebase Realtime Database, where client apps read them.
+hoop-server is a background worker for the Hoop Fan app. It has no HTTP API of its own: it polls ESPN's NBA data and mirrors scoreboards, box scores, and play-by-play into the Firebase Realtime Database, where client apps read them. It also keeps per-play reaction totals from the votes fans write.
 
 ```mermaid
 flowchart LR
@@ -13,6 +13,8 @@ flowchart LR
         FB["firebase.js<br/>Admin SDK writes"]
         SAN["sanitize.js<br/>Firebase-safe keys"]
         PLAYS["plays.js<br/>play diffing"]
+        DIFF["diff.js<br/>changed-field updates"]
+        REACT["reactions.js<br/>reaction totals"]
         SCHED["schedule.js<br/>poll timing"]
     end
 
@@ -23,6 +25,9 @@ flowchart LR
     IDX --> DATES
     IDX --> FB
     IDX --> PLAYS
+    IDX --> DIFF
+    IDX --> REACT
+    REACT --> DIFF
     IDX --> SCHED
     FB --> SAN
     API --> ESPN
@@ -37,8 +42,10 @@ flowchart LR
 | `index.js` | Entry point. Runs the startup backfill and the polling loop, decides which games need data, and writes it to Firebase. |
 | `espn.js` | Thin HTTP client over ESPN's site API. A shared axios instance applies a 10-second timeout. Functions return axios promises and throw on failure. |
 | `dates.js` | `etDate(offsetDays)` returns `YYYY-MM-DD` dates in Eastern Time, because NBA schedules are keyed by ET dates. |
-| `firebase.js` | Initializes the Firebase Admin SDK and exposes one write function per database path. Each returns its promise. |
+| `firebase.js` | Initializes the Firebase Admin SDK. Exposes write functions for plays and extras, generic `set` and `update` for values that are already Firebase-safe, and `watch` for listening to a path. Each write returns its promise. |
 | `plays.js` | `buildPlayNodes` turns ESPN's plays into keyed Firebase nodes; `diffPlays` works out which plays changed since the last write. |
+| `diff.js` | `diffPaths(before, after)` builds a multi-path update of only the changed leaves, and `writeChanges` writes a value as that update (or as a full `set` the first time). Used for headers, box scores, and reaction totals. |
+| `reactions.js` | `ReactionCounter` listens to one game's votes in `gameReactions` and writes `gameReactionCounts`, at most once every 1.5 s. `countReactions` is the pure counting step. |
 | `schedule.js` | `gameState` classifies ESPN game status; `nextPollDelay` decides how long to wait before the next poll based on the games just seen. Pure, so it's tested without network or Firebase. |
 | `sanitize.js` | `toFirebaseSafe(value)` rewrites object keys Firebase rejects (`. $ # [ ] /`, such as ESPN's `$ref`) to use `_`. |
 
@@ -133,7 +140,7 @@ Outside game hours this cuts ESPN traffic from about 500 requests per hour to ab
 | `post` | `true` | `final` | Keeps refreshing until the data settles (below), then adds the game to `finalizedGames` and skips it from then on |
 | `post` | `false` | `other` | Postponed or canceled: writes the header only |
 
-The header is rewritten on every poll for every game not yet in `finalizedGames`. The box score and extras are compared with the JSON last written (`writtenBoxScores`, `writtenExtras`) and only rewritten when they changed, and plays only send what changed.
+Every write sends only what changed (see [Changed-field writes](#changed-field-writes)), and a poll where nothing changed writes nothing. Extras are compared with the JSON last written (`writtenExtras`) and rewritten whole when they change, since no client listens to them live.
 
 #### Settling after the final buzzer
 
@@ -147,7 +154,7 @@ While any game is settling, the scheduler stays in fast mode. A game is added to
 
 ## Firebase data model
 
-The server writes four top-level paths, each keyed by ESPN event id. Headers, box scores, and extras are replaced whole (`set`) on each write; plays are written incrementally (see below). All values pass through `toFirebaseSafe` first.
+The server writes five top-level paths, each keyed by ESPN event id. Headers and box scores are written as changed fields, plays incrementally, and extras whole (see below). All values pass through `toFirebaseSafe` first.
 
 ```
 gameHeaders/{eventId}         = <scoreboard event>                 ~13 KB
@@ -155,6 +162,7 @@ gameBoxScores/{eventId}       = { boxscore, leaders, gameInfo }    ~40 KB
 gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per play
 gameExtras/{eventId}          = { injuries, pickcenter, odds,
                                   againstTheSpread, standings, news }  ~45 KB
+gameReactionCounts/{eventId}/{playKey} = { cheer, boo }            ~40 B per play
 ```
 
 - **`gameHeaders`** holds ESPN's scoreboard `event` as-is: teams, scores, line scores, status (`status.type.shortDetail` is a display string such as "Q3 4:12"), leaders, broadcasts, and venue.
@@ -180,6 +188,25 @@ Replaying a real game (506 plays) poll by poll sent 371 KB in total, averaging 2
 
 The rest of the summary (series, recap article, videos, and so on) is dropped. The old NBA-format paths (`gameHeader22`, `gameData22`, `gamePbp22`) are no longer written.
 
+### Changed-field writes
+
+`writtenHeaders` and `writtenBoxScores` keep, for each game, the value last written (already Firebase-safe). On each poll, `writeChanges` in `diff.js` compares ESPN's current value with it and sends one atomic multi-path `update` of only the leaves that changed, such as `status/displayClock`, `competitions/0/competitors/1/score`, or one player's `stats/3`, with `null` for anything removed. Arrays are compared by index, the way Firebase stores them, and nulls and empty objects count as absent.
+
+- A poll where nothing changed writes nothing. Scheduled games' headers rarely change, so idle polls mostly write nothing.
+- The first write for a game after startup is a full `set`, which also clears anything stale. So is a write where more than 500 paths changed, where one `set` is about as small.
+- The stored value only advances after a successful write, so a failed write is retried against the old value on the next poll.
+
+Every client listening to a game receives each write, so this is what keeps live bandwidth down: a live header update goes from about 13 KB to well under 1 KB, and a box score update from about 40 KB to a few KB.
+
+### Reaction totals
+
+Fans write their own votes to `gameReactions/{eventId}/{uid}/{playKey}` (`"cheer"` or `"boo"`), and the database rules let each user read only their own. While a game is live or settling, a `ReactionCounter` in `reactions.js` listens to the game's votes and keeps `gameReactionCounts/{eventId}/{playKey} = { cheer, boo }`, which clients read instead of the votes:
+
+- Votes that arrive within 1.5 s are written together, as one changed-field update. Plays whose votes were all cleared are removed.
+- The first write after startup replaces the whole node, so totals left stale while the server was down are corrected.
+- A failed write is retried in the next window.
+- The counter stops once the game settles, after writing anything still pending. Games found by the startup backfill that started more than 12 hours ago aren't counted at all.
+
 ## Error handling
 
 The server runs unattended, so one bad response or failed write must not stop it:
@@ -192,7 +219,7 @@ The server runs unattended, so one bad response or failed write must not stop it
 
 ## Security
 
-The server authenticates with a service account through the Firebase Admin SDK, which bypasses database rules. That means the rules can (and should) deny client writes to `gameHeaders`, `gameBoxScores`, `gamePlays`, and `gameExtras` while still allowing reads.
+The server authenticates with a service account through the Firebase Admin SDK, which bypasses database rules. That means the rules can (and should) deny client writes to `gameHeaders`, `gameBoxScores`, `gamePlays`, `gameExtras`, and `gameReactionCounts` while still allowing reads. The server reads the votes in `gameReactions`, which clients can only read for themselves.
 
 ## Configuration
 
@@ -215,12 +242,12 @@ npm start   # node index.js
 npm test    # node --test (tests in test/)
 ```
 
-The tests cover the pure helpers (`etDate`, `gameState`, `nextPollDelay`, `isSettled`, `toFirebaseSafe`, `buildPlayNodes`, `diffPlays`) and don't need Firebase credentials. `index.js` loads `firebase.js` lazily, and only calls `main()` when run directly.
+The tests cover the pure helpers (`etDate`, `gameState`, `nextPollDelay`, `isSettled`, `toFirebaseSafe`, `buildPlayNodes`, `diffPlays`, `diffPaths`, `writeChanges`, `countReactions`) and `ReactionCounter` against a fake database, and don't need Firebase credentials. `index.js` loads `firebase.js` lazily, and only calls `main()` when run directly.
 
 ## Known limitations
 
 - **Unofficial API**: ESPN can change or rate-limit these endpoints without notice. Nothing has been tested yet during a live game.
-- **Single instance**: in-memory state (`finalizedGames`, settling timers, and the last-written plays, box scores, and extras) assumes one server process. Running two would duplicate writes, though the data would still converge because each process writes ESPN's current state.
-- **Header writes every poll**: each unsettled game's header (about 13 KB) is rewritten on every poll, even when nothing changed, including `pre` games while idle.
-- **Whole-node box score writes**: the box score is skipped when unchanged, but during a live game it changes almost every poll, and each change rewrites the whole node (about 40 KB). Plays are incremental.
+- **Single instance**: in-memory state (`finalizedGames`, settling timers, reaction counters, and the last-written headers, plays, box scores, and extras) assumes one server process. Running two would duplicate writes, though the data would still converge because each process writes ESPN's current state.
+- **Reactions after settling aren't counted**: once a game settles, its totals stop updating. A fan reacting to an old game sees their own reaction highlighted, but the totals don't include it.
+- **Reaction counting downloads every vote**: the server listens to each live game's whole `gameReactions` node. That's about 0.5 MB per game at 10,000 votes, which is fine for one server but would need Cloud Functions or sharding at much larger scale.
 - **Late-logged plays shift `order`**: inserting a play mid-list rewrites every later play whose `order` changed.

@@ -187,19 +187,53 @@ sudo -u hoop npm ci --omit=dev
 sudo systemctl restart hoop-server
 ```
 
+Or do it in one step from your PC:
+
+```powershell
+gcloud compute ssh hoop-server --command "cd /opt/hoop-server/app && sudo -u hoop git pull && sudo -u hoop npm ci --omit=dev && sudo systemctl restart hoop-server"
+```
+
 On restart, the server re-runs its backfill and rewrites each game's plays once. This is
 expected (see `docs/architecture.md`).
 
 ## Common commands
 
+### On your PC (PowerShell)
+
 | Task | Command |
 |---|---|
 | SSH into the VM | `gcloud compute ssh hoop-server` |
-| Restart the app | `sudo systemctl restart hoop-server` |
-| Stop the app | `sudo systemctl stop hoop-server` |
-| Follow logs | `journalctl -u hoop-server -f` |
+| Follow logs without opening a shell | `gcloud compute ssh hoop-server --command "journalctl -u hoop-server -f"` |
+| Run any one VM command | `gcloud compute ssh hoop-server --command "<command>"` |
+| Check whether the VM is running | `gcloud compute instances list` |
 | Stop the VM (off-season) | `gcloud compute instances stop hoop-server` |
 | Start the VM | `gcloud compute instances start hoop-server` |
+
+Stopping the VM stops the app too. Starting it again starts the app automatically, because the
+service is enabled. The external IP may change after a stop and start, but nothing depends on it.
+
+### On the VM (after `gcloud compute ssh hoop-server`)
+
+| Task | Command |
+|---|---|
+| Is the app running? | `systemctl status hoop-server` |
+| Follow live logs (Ctrl+C to stop) | `journalctl -u hoop-server -f` |
+| Last 100 log lines | `journalctl -u hoop-server -n 100` |
+| Logs since a time | `journalctl -u hoop-server --since "23:00"` |
+| Logs from the last hour | `journalctl -u hoop-server --since "1 hour ago"` |
+| Restart the app | `sudo systemctl restart hoop-server` |
+| Stop the app | `sudo systemctl stop hoop-server` |
+| Start the app | `sudo systemctl start hoop-server` |
+| Memory and swap usage | `free -h` |
+| Disk usage | `df -h /` |
+| Leave the VM | `exit` |
+
+**The VM clock is UTC.** `--since` times are in UTC: 7 PM ET is `23:00` during daylight time
+(EDT) and `00:00` in winter (EST). If `journalctl` complains about permissions, put `sudo` in front.
+
+Following the logs only watches them; closing the window or losing the connection doesn't
+affect the app. Between games the log is quiet. The server only polls again shortly before
+the next tip-off (look for the `Idle: next tip-off ...` line).
 
 ## Rotating the service account key
 
