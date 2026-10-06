@@ -16,6 +16,7 @@ flowchart LR
         DIFF["diff.js<br/>changed-field updates"]
         REACT["reactions.js<br/>reaction totals"]
         SCHED["schedule.js<br/>poll timing"]
+        LAG["lag.js<br/>feed lag check"]
     end
 
     RTDB[("Firebase Realtime Database")]
@@ -29,6 +30,7 @@ flowchart LR
     IDX --> REACT
     REACT --> DIFF
     IDX --> SCHED
+    IDX --> LAG
     FB --> SAN
     API --> ESPN
     FB --> RTDB
@@ -46,6 +48,7 @@ flowchart LR
 | `plays.js` | `buildPlayNodes` turns ESPN's plays into keyed Firebase nodes; `diffPlays` works out which plays changed since the last write. |
 | `diff.js` | `diffPaths(before, after)` builds a multi-path update of only the changed leaves, and `writeChanges` writes a value as that update (or as a full `set` the first time). Used for headers, box scores, and reaction totals. |
 | `reactions.js` | `ReactionCounter` listens to one game's votes in `gameReactions` and writes `gameReactionCounts`, at most once every 1.5 s. `countReactions` is the pure counting step. |
+| `lag.js` | `feedLag` compares a live game's scoreboard clock and score with its last play; `LagMonitor` logs once when the play-by-play has been more than 90 s or 7 points behind for a minute, and once when it catches up. Log only: an ESPN feed stall can't be fixed here. |
 | `schedule.js` | `gameState` classifies ESPN game status; `nextPollDelay` decides how long to wait before the next poll based on the games just seen. Pure, so it's tested without network or Firebase. |
 | `sanitize.js` | `toFirebaseSafe(value)` rewrites object keys Firebase rejects (`. $ # [ ] /`, such as ESPN's `$ref`) to use `_`. |
 

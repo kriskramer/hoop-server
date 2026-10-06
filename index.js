@@ -5,6 +5,7 @@ const { gameState, nextPollDelay, formatDelay, RETRY_MS } = require('./schedule'
 const { writeChanges } = require('./diff');
 const { ReactionCounter } = require('./reactions');
 const { toFirebaseSafe } = require('./sanitize');
+const { feedLag, LagMonitor } = require('./lag');
 
 const BACKFILL_DAYS = 5;
 
@@ -30,6 +31,8 @@ const writtenBoxScores = new Map();
 const writtenExtras = new Map();
 // eventId -> ReactionCounter for live and settling games.
 const reactionCounters = new Map();
+// Logs live games whose play-by-play falls behind the scoreboard.
+const lagMonitor = new LagMonitor();
 let pollCount = 0;
 // The last poll's schedule decision: { mode: 'fast' | 'idle', reason }.
 let lastDecision = {};
@@ -65,7 +68,7 @@ async function processGame(event) {
     if (Date.now() - Date.parse(event.date) < SETTLED_AFTER_START_MS) {
         startCountingReactions(event.id);
     }
-    const changed = await saveDetails(event.id);
+    const changed = await saveDetails(event, state === 'live');
 
     // Only runs once the writes succeeded, so a failure is retried on the next poll.
     if (state === 'final' && isSettled(event, changed, Date.now())) {
@@ -119,9 +122,16 @@ function isSettled(event, changed, now) {
     return now - tracking.lastChange >= FINAL_QUIET_MS || now - tracking.firstSeen >= FINAL_MAX_MS;
 }
 
-// Writes the box score and plays. Returns whether anything changed.
-async function saveDetails(eventId) {
+// Writes the box score and plays, and for a live game checks that the plays are keeping up
+// with the scoreboard. Returns whether anything changed.
+async function saveDetails(event, live) {
+    const eventId = event.id;
     const { data } = await espn.getSummary(eventId);
+    if (live) {
+        lagMonitor.check(eventId, feedLag(event, data.plays), Date.now());
+    } else {
+        lagMonitor.forget(eventId);
+    }
 
     const boxScore = {
         boxscore: data.boxscore ?? null,
