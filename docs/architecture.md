@@ -162,7 +162,7 @@ gameBoxScores/{eventId}       = { boxscore, leaders, gameInfo }    ~40 KB
 gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per play
 gameExtras/{eventId}          = { injuries, pickcenter, odds,
                                   againstTheSpread, standings, news }  ~45 KB
-gameReactionCounts/{eventId}/{playKey} = { cheer, boo }            ~40 B per play
+gameReactionCounts/{eventId}/{playKey} = { cheer: 3, wow: 1 }      ~40 B per play (non-zero totals only)
 ```
 
 - **`gameHeaders`** holds ESPN's scoreboard `event` as-is: teams, scores, line scores, status (`status.type.shortDetail` is a display string such as "Q3 4:12"), leaders, broadcasts, and venue.
@@ -200,7 +200,7 @@ Every client listening to a game receives each write, so this is what keeps live
 
 ### Reaction totals
 
-Fans write their own votes to `gameReactions/{eventId}/{uid}/{playKey}` (`"cheer"` or `"boo"`), and the database rules let each user read only their own. While a game is live or settling, a `ReactionCounter` in `reactions.js` listens to the game's votes and keeps `gameReactionCounts/{eventId}/{playKey} = { cheer, boo }`, which clients read instead of the votes:
+Fans write their own votes to `gameReactions/{eventId}/{uid}/{playKey}` (`"cheer"`, `"boo"`, `"wow"`, `"lol"`, `"brick"`, `"ref"`, `"goat"`, `"crown"`, `"ice"` or `"dead"`), and the database rules let each user read only their own. While a game is live or settling, a `ReactionCounter` in `reactions.js` listens to the game's votes and keeps `gameReactionCounts/{eventId}/{playKey} = { cheer, boo }`, which clients read instead of the votes:
 
 - Votes that arrive within 1.5 s are written together, as one changed-field update. Plays whose votes were all cleared are removed.
 - The first write after startup replaces the whole node, so totals left stale while the server was down are corrected.

@@ -1,24 +1,26 @@
 // Keeps per-play reaction totals for clients. Users write their own votes to
-// gameReactions/{eventId}/{uid}/{playKey} = 'cheer' | 'boo', and the database rules let each
+// gameReactions/{eventId}/{uid}/{playKey} = one of VALUES, and the database rules let each
 // user read only their own. This module listens to a game's votes and writes the totals to
-// gameReactionCounts/{eventId}/{playKey} = { cheer, boo }, so clients download a few bytes
-// per changed play instead of every vote.
+// gameReactionCounts/{eventId}/{playKey} = { cheer: 3, wow: 1, ... }, so clients download a
+// few bytes per changed play instead of every vote.
 const { writeChanges } = require('./diff');
 
 // Votes arriving within this window are written as one update.
 const FLUSH_MS = 1500;
-const VALUES = ['cheer', 'boo'];
+// Keep in sync with database.rules.json and the client's Reaction enum.
+const VALUES = ['cheer', 'goat', 'crown', 'ice', 'wow', 'lol', 'dead', 'brick', 'ref', 'boo'];
 
-// Turns gameReactions/{eventId} ({ uid: { playKey: value } }) into { playKey: { cheer, boo } }.
-// Plays with no votes are left out, and anything that isn't a known value is ignored.
+// Turns gameReactions/{eventId} ({ uid: { playKey: value } }) into { playKey: { value: count } }.
+// Only values with votes are included, plays with no votes are left out, and anything that
+// isn't a known value is ignored.
 function countReactions(votesByUser) {
     const counts = {};
     for (const votes of Object.values(votesByUser ?? {})) {
         if (!votes || typeof votes !== 'object') continue;
         for (const [playKey, value] of Object.entries(votes)) {
             if (!VALUES.includes(value)) continue;
-            counts[playKey] ??= { cheer: 0, boo: 0 };
-            counts[playKey][value]++;
+            counts[playKey] ??= {};
+            counts[playKey][value] = (counts[playKey][value] ?? 0) + 1;
         }
     }
     return counts;

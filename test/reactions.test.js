@@ -5,13 +5,15 @@ const { countReactions, ReactionCounter } = require('../reactions');
 test('totals votes per play, ignoring unknown values', () => {
     const counts = countReactions({
         u1: { '000010': 'cheer', '000011': 'boo' },
-        u2: { '000010': 'cheer', '000012': 'meh' },
+        u2: { '000010': 'cheer', '000012': 'meh', '000013': 'brick', '000014': 'goat' },
         u3: { '000010': 'boo' },
         u4: 'not a map',
     });
     assert.deepStrictEqual(counts, {
         '000010': { cheer: 2, boo: 1 },
-        '000011': { cheer: 0, boo: 1 },
+        '000011': { boo: 1 },
+        '000013': { brick: 1 },
+        '000014': { goat: 1 },
     });
     assert.deepStrictEqual(countReactions(null), {});
 });
@@ -62,11 +64,11 @@ test('writes all totals first, then only the plays that changed, once per window
     await tick();
     assert.deepStrictEqual(calls, [
         ['watch', 'gameReactions/401'],
-        ['set', 'gameReactionCounts/401', { '000010': { cheer: 1, boo: 0 }, '000011': { cheer: 0, boo: 1 } }],
+        ['set', 'gameReactionCounts/401', { '000010': { cheer: 1 }, '000011': { boo: 1 } }],
         ['update', 'gameReactionCounts/401', {
-            '000010/cheer': 0,
+            '000010/cheer': null,
             '000010/boo': 1,
-            '000012': { cheer: 1, boo: 0 },
+            '000012': { cheer: 1 },
         }],
     ]);
 });
@@ -97,7 +99,7 @@ test('stop() unsubscribes and writes votes still waiting for their window', asyn
     assert.strictEqual(hasTimer(), false);
     assert.deepStrictEqual(calls.slice(1), [
         ['unwatch', 'gameReactions/401'],
-        ['set', 'gameReactionCounts/401', { '000010': { cheer: 1, boo: 0 } }],
+        ['set', 'gameReactionCounts/401', { '000010': { cheer: 1 } }],
     ]);
 });
 
@@ -117,5 +119,5 @@ test('retries a failed write on the next window', async (t) => {
     assert.strictEqual(hasTimer(), true);
     fail = false;
     await tick();
-    assert.deepStrictEqual(calls.at(-1), ['set', 'gameReactionCounts/401', { '000010': { cheer: 1, boo: 0 } }]);
+    assert.deepStrictEqual(calls.at(-1), ['set', 'gameReactionCounts/401', { '000010': { cheer: 1 } }]);
 });
