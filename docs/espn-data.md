@@ -33,6 +33,7 @@ gameExtras/{eventId}
     pickcenter, odds, againstTheSpread betting lines and ATS records
     standings                          conference standings
     news                               league news articles
+    videos                             highlight clips, trimmed (see below)
 ```
 
 Two things apply to every stored value:
@@ -236,12 +237,12 @@ Free throws, jump balls, timeouts and other plays without a location use the sen
 
 `winProbability.homeWinPercentage` is a fraction from 0 to 1. The away team's chance is `1 - homeWinPercentage - tiePercentage`. In the sample game every play had an entry (506 plays, 506 entries).
 
-## Injuries, odds, standings, and news: `gameExtras`
+## Injuries, odds, standings, news, and highlights: `gameExtras`
 
-The server writes these parts of the summary, unchanged, from the same summary request as the box score:
+The server writes these parts of the summary from the same summary request as the box score. All but `videos` are stored unchanged:
 
 ```js
-{ injuries, pickcenter, odds, againstTheSpread, standings, news }
+{ injuries, pickcenter, odds, againstTheSpread, standings, news, videos }
 ```
 
 They're kept out of `gameBoxScores` so clients listening to live stats don't re-download about 45 KB of news and standings on every box score change. The node is rewritten whole, and only when something in it changed. Changes here don't count toward [settling](architecture.md#settling-after-the-final-buzzer), because league news keeps changing long after a game ends.
@@ -254,6 +255,7 @@ They're kept out of `gameBoxScores` so clients listening to live stats don't re-
 | `againstTheSpread[]` | Each team's record against the spread this season |
 | `standings` | `{ header: "2026-27 Standings", groups: [ ... ] }`, one group per conference involved, with each team's record |
 | `news` | `{ header, link, articles: [ ... ] }`. League-wide, not specific to this game |
+| `videos[]` | ESPN highlight clips, oldest first, trimmed by `videos.js` to `{ id, headline, duration, publishedAt, thumbnail, url }`. `url` is the clip's espn.com page. In-game clips appear a few minutes after the play; the recap appears shortly after the final buzzer. The stream and MP4 links, and the per-country restrictions (Canada isn't on the list), aren't stored, because the app links out to espn.com instead of playing ESPN's files |
 
 Things to know:
 
@@ -270,7 +272,7 @@ The summary response also includes these. `saveDetails` in `index.js` drops them
 | `header` | Game status and per-period linescores, plus flags such as `shotChartAvailable`, `possessionArrowAvailable` and `timeoutsAvailable`. Mostly duplicates `gameHeaders` |
 | `seasonseries` | Head-to-head series this season, with the other meetings' event ids |
 | `broadcasts` | TV and radio |
-| `article`, `videos` | Game recap article and highlight clips |
+| `article` | Game recap article |
 | `winprobability` | Merged into each play rather than stored separately |
 | `format`, `meta`, `wallclockAvailable` | Metadata |
 

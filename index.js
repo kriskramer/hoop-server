@@ -6,6 +6,7 @@ const { writeChanges } = require('./diff');
 const { ReactionCounter } = require('./reactions');
 const { toFirebaseSafe } = require('./sanitize');
 const { feedLag, LagMonitor } = require('./lag');
+const { trimVideos } = require('./videos');
 
 const BACKFILL_DAYS = 5;
 
@@ -153,7 +154,7 @@ async function saveDetails(event, live) {
     return boxChanged || playsChanged;
 }
 
-// Injuries, odds, standings, and news. Kept apart from the box score so clients listening to
+// Injuries, odds, standings, news, and highlight clips. Kept apart from the box score so clients listening to
 // live stats don't re-download them on every update. Not counted as a change for settling,
 // because league news keeps changing long after a game ends.
 async function saveExtras(eventId, data) {
@@ -164,6 +165,7 @@ async function saveExtras(eventId, data) {
         againstTheSpread: data.againstTheSpread ?? null,
         standings: data.standings ?? null,
         news: data.news ?? null,
+        videos: trimVideos(data.videos),
     };
     const json = JSON.stringify(extras);
     if (writtenExtras.get(eventId) === json) {
