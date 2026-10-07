@@ -8,7 +8,7 @@ const { writeChanges } = require('./diff');
 // Votes arriving within this window are written as one update.
 const FLUSH_MS = 1500;
 // Keep in sync with database.rules.json and the client's Reaction enum.
-const VALUES = ['cheer', 'goat', 'crown', 'ice', 'wow', 'lol', 'dead', 'brick', 'ref', 'boo'];
+const VALUES = ['cheer', 'goat', 'crown', 'ice', 'dagger', 'like', 'wow', 'lol', 'dead', 'brick', 'ref', 'boo'];
 
 // Turns gameReactions/{eventId} ({ uid: { playKey: value } }) into { playKey: { value: count } }.
 // Only values with votes are included, plays with no votes are left out, and anything that

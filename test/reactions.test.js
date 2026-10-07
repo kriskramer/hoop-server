@@ -5,7 +5,7 @@ const { countReactions, ReactionCounter } = require('../reactions');
 test('totals votes per play, ignoring unknown values', () => {
     const counts = countReactions({
         u1: { '000010': 'cheer', '000011': 'boo' },
-        u2: { '000010': 'cheer', '000012': 'meh', '000013': 'brick', '000014': 'goat' },
+        u2: { '000010': 'cheer', '000012': 'meh', '000013': 'brick', '000014': 'goat', '000015': 'dagger' },
         u3: { '000010': 'boo' },
         u4: 'not a map',
     });
@@ -14,6 +14,7 @@ test('totals votes per play, ignoring unknown values', () => {
         '000011': { boo: 1 },
         '000013': { brick: 1 },
         '000014': { goat: 1 },
+        '000015': { dagger: 1 },
     });
     assert.deepStrictEqual(countReactions(null), {});
 });
