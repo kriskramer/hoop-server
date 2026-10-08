@@ -48,6 +48,7 @@ flowchart LR
 | `plays.js` | `buildPlayNodes` turns ESPN's plays into keyed Firebase nodes; `diffPlays` works out which plays changed since the last write. |
 | `diff.js` | `diffPaths(before, after)` builds a multi-path update of only the changed leaves, and `writeChanges` writes a value as that update (or as a full `set` the first time). Used for headers, box scores, and reaction totals. |
 | `reactions.js` | `ReactionCounter` listens to one game's votes in `gameReactions` and writes `gameReactionCounts`, at most once every 1.5 s. `countReactions` is the pure counting step. |
+| `roster.js` | `buildRoster(boxscore)` turns the summary's player tables into `gameRosters/{eventId}`: each athlete's name, short name, jersey, team, and starter flag. |
 | `lag.js` | `feedLag` compares a live game's scoreboard clock and score with its last play; `LagMonitor` logs once when the play-by-play has been more than 90 s or 7 points behind for a minute, and once when it catches up. Log only: an ESPN feed stall can't be fixed here. |
 | `schedule.js` | `gameState` classifies ESPN game status; `nextPollDelay` decides how long to wait before the next poll based on the games just seen. Pure, so it's tested without network or Firebase. |
 | `sanitize.js` | `toFirebaseSafe(value)` rewrites object keys Firebase rejects (`. $ # [ ] /`, such as ESPN's `$ref`) to use `_`. |
@@ -157,11 +158,12 @@ While any game is settling, the scheduler stays in fast mode. A game is added to
 
 ## Firebase data model
 
-The server writes five top-level paths, each keyed by ESPN event id. Headers and box scores are written as changed fields, plays incrementally, and extras whole (see below). All values pass through `toFirebaseSafe` first.
+The server writes six top-level paths, each keyed by ESPN event id. Headers and box scores are written as changed fields, plays incrementally, and extras whole (see below). All values pass through `toFirebaseSafe` first.
 
 ```
 gameHeaders/{eventId}         = <scoreboard event>                 ~13 KB
 gameBoxScores/{eventId}       = { boxscore, leaders, gameInfo }    ~40 KB
+gameRosters/{eventId}/{athleteId} = { name, short, jersey, teamId, starter }  ~2–3 KB
 gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per play
 gameExtras/{eventId}          = { injuries, pickcenter, odds,
                                   againstTheSpread, standings, news }  ~45 KB
@@ -170,6 +172,7 @@ gameReactionCounts/{eventId}/{playKey} = { cheer: 3, wow: 1 }      ~40 B per pla
 
 - **`gameHeaders`** holds ESPN's scoreboard `event` as-is: teams, scores, line scores, status (`status.type.shortDetail` is a display string such as "Q3 4:12"), leaders, broadcasts, and venue.
 - **`gameBoxScores`** holds the parts of the summary that describe the game. `boxscore.players[].statistics[].keys` names the columns of each athlete's `stats` array.
+- **`gameRosters`** lists each team's players by athlete id (the ids in play `participants`). Clients that show plays without the box score, such as the Watch Party timeline, get names from here. It's written as changed fields, so it only changes when ESPN adds a player.
 - **`gamePlays`** holds one node per play (type, text, period, clock, score, team, participants, shot coordinates, wall-clock time). It's written only once plays exist.
   - **Key**: the play's `sequenceNumber`, zero-padded to six digits (`000142`). Sequence numbers are unique within a game and never change.
   - **`order`**: the play's position in ESPN's list. **Clients must sort by `order`, not by key.** ESPN lists plays in game-clock order, but sequence numbers follow the order plays were entered, so a play logged late has a higher number than the plays around it (5 of 6 games checked had such plays).
@@ -222,7 +225,7 @@ The server runs unattended, so one bad response or failed write must not stop it
 
 ## Security
 
-The server authenticates with a service account through the Firebase Admin SDK, which bypasses database rules. That means the rules can (and should) deny client writes to `gameHeaders`, `gameBoxScores`, `gamePlays`, `gameExtras`, and `gameReactionCounts` while still allowing reads. The server reads the votes in `gameReactions`, which clients can only read for themselves.
+The server authenticates with a service account through the Firebase Admin SDK, which bypasses database rules. That means the rules can (and should) deny client writes to `gameHeaders`, `gameBoxScores`, `gameRosters`, `gamePlays`, `gameExtras`, and `gameReactionCounts` while still allowing reads. The server reads the votes in `gameReactions`, which clients can only read for themselves.
 
 ## Configuration
 

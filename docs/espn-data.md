@@ -13,9 +13,9 @@ The server uses two ESPN endpoints, both under `https://site.api.espn.com/apis/s
 | Endpoint | Called for | When | Stored at |
 | --- | --- | --- | --- |
 | `/scoreboard?dates=YYYYMMDD` | One ET date's games | Each poll: yesterday and today. Startup: the 5 days before and after today | `gameHeaders/{eventId}`, one per game |
-| `/summary?event={eventId}` | One game | Each poll, for games that are live or final and still settling | `gameBoxScores/{eventId}`, `gamePlays/{eventId}` and `gameExtras/{eventId}` |
+| `/summary?event={eventId}` | One game | Each poll, for games that are live or final and still settling | `gameBoxScores/{eventId}`, `gameRosters/{eventId}`, `gamePlays/{eventId}` and `gameExtras/{eventId}` |
 
-Scheduled (`pre`), postponed and canceled games only get a header. Live games get all four paths refreshed every 12–14 seconds. Final games keep refreshing until ESPN stops correcting them (see [Settling after the final buzzer](architecture.md#settling-after-the-final-buzzer)).
+Scheduled (`pre`), postponed and canceled games only get a header. Live games get all five paths refreshed every 12–14 seconds. Final games keep refreshing until ESPN stops correcting them (see [Settling after the final buzzer](architecture.md#settling-after-the-final-buzzer)).
 
 Every path is keyed by **ESPN event id** (for example `401811026`). The same id appears in the header, the box score, the plays, and the extras, so clients join on it.
 
@@ -27,6 +27,7 @@ gameBoxScores/{eventId}
     boxscore                           team and player stats
     leaders                            top performers per team
     gameInfo                           venue, attendance, officials
+gameRosters/{eventId}/{athleteId}      name, short name, jersey, team and starter, from the box score
 gamePlays/{eventId}/{playKey}          one node per play, with order and winProbability
 gameExtras/{eventId}
     injuries                           both teams' injury reports

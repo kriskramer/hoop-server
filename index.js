@@ -7,6 +7,7 @@ const { ReactionCounter } = require('./reactions');
 const { toFirebaseSafe } = require('./sanitize');
 const { feedLag, LagMonitor } = require('./lag');
 const { trimVideos } = require('./videos');
+const { buildRoster } = require('./roster');
 
 const BACKFILL_DAYS = 5;
 
@@ -28,6 +29,7 @@ const writtenPlays = new Map();
 // the changed fields. A live header update is well under 1 KB this way instead of ~13 KB.
 const writtenHeaders = new Map();
 const writtenBoxScores = new Map();
+const writtenRosters = new Map();
 // eventId -> JSON of the extras last written, to skip unchanged writes.
 const writtenExtras = new Map();
 // eventId -> ReactionCounter for live and settling games.
@@ -78,6 +80,7 @@ async function processGame(event) {
         writtenPlays.delete(event.id);
         writtenHeaders.delete(event.id);
         writtenBoxScores.delete(event.id);
+        writtenRosters.delete(event.id);
         writtenExtras.delete(event.id);
         stopCountingReactions(event.id);
         console.log(`Game settled, no longer refreshing -- ${event.id}`);
@@ -142,6 +145,13 @@ async function saveDetails(event, live) {
     const boxChanged = await writeTracked(writtenBoxScores, 'gameBoxScores', eventId, boxScore);
     if (boxChanged) {
         console.log(`Updating game box score -- ${eventId}`);
+    }
+
+    // Player names for clients that don't listen to the box score. A roster change is also a
+    // box score change, so it doesn't count separately for settling.
+    const roster = buildRoster(data.boxscore);
+    if (roster && await writeTracked(writtenRosters, 'gameRosters', eventId, roster)) {
+        console.log(`Updating game roster -- ${eventId}`);
     }
 
     await saveExtras(eventId, data);
