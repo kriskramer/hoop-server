@@ -1,6 +1,6 @@
 const espn = require('./espn');
 const { etDate } = require('./dates');
-const { buildPlayNodes, snapshot, diffPlays } = require('./plays');
+const { buildPlayNodes, snapshot, diffPlays, gameEndedAt } = require('./plays');
 const { gameState, nextPollDelay, formatDelay, RETRY_MS } = require('./schedule');
 const { writeChanges } = require('./diff');
 const { ReactionCounter } = require('./reactions');
@@ -32,6 +32,9 @@ const writtenBoxScores = new Map();
 const writtenRosters = new Map();
 // eventId -> JSON of the extras last written, to skip unchanged writes.
 const writtenExtras = new Map();
+// eventId -> when a final game ended (ms), written into its header as `endedAt`. Kept here
+// because each header write replaces or diffs the whole header, which would otherwise drop it.
+const endTimes = new Map();
 // eventId -> ReactionCounter for live and settling games.
 const reactionCounters = new Map();
 // Logs live games whose play-by-play falls behind the scoreboard.
@@ -49,7 +52,7 @@ async function processGame(event) {
     }
 
     // Scheduled games rarely change, so most polls write nothing for them.
-    if (await writeTracked(writtenHeaders, 'gameHeaders', event.id, event)) {
+    if (await writeTracked(writtenHeaders, 'gameHeaders', event.id, withEndTime(event))) {
         console.log(`Updating game header -- ${event.id} - ${event.shortName} - ${event.date}`);
     }
 
@@ -82,6 +85,7 @@ async function processGame(event) {
         writtenBoxScores.delete(event.id);
         writtenRosters.delete(event.id);
         writtenExtras.delete(event.id);
+        endTimes.delete(event.id);
         stopCountingReactions(event.id);
         console.log(`Game settled, no longer refreshing -- ${event.id}`);
     }
@@ -95,6 +99,23 @@ async function writeTracked(written, root, eventId, value) {
     // Only recorded after a successful write, so a failed write is retried in full.
     written.set(eventId, safe);
     return changed;
+}
+
+// The header as stored: ESPN's event, plus `endedAt` once the game is known to have ended.
+function withEndTime(event) {
+    const endedAt = endTimes.get(event.id);
+    return endedAt === undefined ? event : { ...event, endedAt };
+}
+
+// Records when a final game ended and adds it to the stored header. It comes from the
+// plays, so after a restart the backfill writes the same time again. Without plays, it's
+// when the server first saw the game as final.
+async function saveEndTime(event, plays) {
+    const endedAt = gameEndedAt(plays) ?? endTimes.get(event.id) ?? Date.now();
+    if (endTimes.get(event.id) === endedAt) return;
+    endTimes.set(event.id, endedAt);
+    await writeTracked(writtenHeaders, 'gameHeaders', event.id, withEndTime(event));
+    console.log(`Game ended at ${new Date(endedAt).toISOString()} -- ${event.id}`);
 }
 
 // Live and settling games keep gameReactionCounts up to date. Once a game settles, its
@@ -160,6 +181,9 @@ async function saveDetails(event, live) {
     let playsChanged = false;
     if (Array.isArray(data.plays) && data.plays.length > 0) {
         playsChanged = await savePlays(eventId, buildPlayNodes(data.plays, data.winprobability));
+    }
+    if (gameState(event) === 'final') {
+        await saveEndTime(event, data.plays);
     }
     return boxChanged || playsChanged;
 }

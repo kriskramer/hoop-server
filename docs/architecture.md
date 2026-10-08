@@ -45,7 +45,7 @@ flowchart LR
 | `espn.js` | Thin HTTP client over ESPN's site API. A shared axios instance applies a 10-second timeout. Functions return axios promises and throw on failure. |
 | `dates.js` | `etDate(offsetDays)` returns `YYYY-MM-DD` dates in Eastern Time, because NBA schedules are keyed by ET dates. |
 | `firebase.js` | Initializes the Firebase Admin SDK. Exposes write functions for plays and extras, generic `set` and `update` for values that are already Firebase-safe, and `watch` for listening to a path. Each write returns its promise. |
-| `plays.js` | `buildPlayNodes` turns ESPN's plays into keyed Firebase nodes; `diffPlays` works out which plays changed since the last write. |
+| `plays.js` | `buildPlayNodes` turns ESPN's plays into keyed Firebase nodes; `diffPlays` works out which plays changed since the last write; `gameEndedAt` finds when a final game ended. |
 | `diff.js` | `diffPaths(before, after)` builds a multi-path update of only the changed leaves, and `writeChanges` writes a value as that update (or as a full `set` the first time). Used for headers, box scores, and reaction totals. |
 | `reactions.js` | `ReactionCounter` listens to one game's votes in `gameReactions` and writes `gameReactionCounts`, at most once every 1.5 s. `countReactions` is the pure counting step. |
 | `roster.js` | `buildRoster(boxscore)` turns the summary's player tables into `gameRosters/{eventId}`: each athlete's name, short name, jersey, team, and starter flag. |
@@ -170,7 +170,7 @@ gameExtras/{eventId}          = { injuries, pickcenter, odds,
 gameReactionCounts/{eventId}/{playKey} = { cheer: 3, wow: 1 }      ~40 B per play (non-zero totals only)
 ```
 
-- **`gameHeaders`** holds ESPN's scoreboard `event` as-is: teams, scores, line scores, status (`status.type.shortDetail` is a display string such as "Q3 4:12"), leaders, broadcasts, and venue.
+- **`gameHeaders`** holds ESPN's scoreboard `event` as-is: teams, scores, line scores, status (`status.type.shortDetail` is a display string such as "Q3 4:12"), leaders, broadcasts, and venue. Once a game is final, the server adds **`endedAt`** (milliseconds): the "End Game" play's wallclock, else the latest play's (`gameEndedAt` in `plays.js`). With no plays, it's when the server first saw the game as final. The database rules close Watch Party comments and reactions 10 minutes after `endedAt`, and the After Party chat 3 days after it. `endTimes` keeps it in memory so every later header write includes it. It comes from the plays, so after a restart the backfill writes the same value again.
 - **`gameBoxScores`** holds the parts of the summary that describe the game. `boxscore.players[].statistics[].keys` names the columns of each athlete's `stats` array.
 - **`gameRosters`** lists each team's players by athlete id (the ids in play `participants`). Clients that show plays without the box score, such as the Watch Party timeline, get names from here. It's written as changed fields, so it only changes when ESPN adds a player.
 - **`gamePlays`** holds one node per play (type, text, period, clock, score, team, participants, shot coordinates, wall-clock time). It's written only once plays exist.

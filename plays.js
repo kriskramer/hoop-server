@@ -46,4 +46,17 @@ function diffPlays(previous, nodes) {
     return { updates, current };
 }
 
-module.exports = { buildPlayNodes, snapshot, diffPlays };
+// When a final game ended, in milliseconds: the "End Game" play's wallclock, else the
+// latest wallclock among the plays. Null if no play has one. Stored as
+// gameHeaders/{eventId}/endedAt, which the database rules use to close Watch Party
+// comments and reactions 10 minutes later and the After Party chat 3 days later.
+function gameEndedAt(plays) {
+    if (!Array.isArray(plays)) return null;
+    const time = (play) => Date.parse(play?.wallclock ?? '');
+    const end = plays.findLast((p) => p?.type?.text === 'End Game' && Number.isFinite(time(p)));
+    if (end) return time(end);
+    const times = plays.map(time).filter(Number.isFinite);
+    return times.length > 0 ? Math.max(...times) : null;
+}
+
+module.exports = { buildPlayNodes, snapshot, diffPlays, gameEndedAt };
