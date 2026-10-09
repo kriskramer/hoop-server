@@ -9,6 +9,7 @@ const { feedLag, LagMonitor } = require('./lag');
 const { trimVideos } = require('./videos');
 const { buildRoster } = require('./roster');
 const { StandingsRefresher } = require('./standings');
+const { trimTeam, TeamRefresher } = require('./teams');
 
 const BACKFILL_DAYS = 5;
 
@@ -48,6 +49,35 @@ const standings = new StandingsRefresher({
         return { conferences: conferences.data, divisions: divisions.data };
     },
     write: (value) => db().writeStandings(value),
+});
+// Keeps `teams/{teamId}` current: each game's two teams shortly after it goes final, and
+// every team daily otherwise.
+const teams = new TeamRefresher({
+    listTeams: async () => {
+        const { data } = await espn.getTeams();
+        const entries = data?.sports?.[0]?.leagues?.[0]?.teams ?? [];
+        return entries.map(e => e?.team?.id).filter(id => id != null).map(String);
+    },
+    fetch: async (teamId) => {
+        const [roster, schedule, stats] = await Promise.all([
+            espn.getTeamRoster(teamId),
+            espn.getTeamSchedule(teamId),
+            // The page still works without stats, so a failure here doesn't fail the team.
+            espn.getTeamStatistics(teamId).catch(() => null),
+        ]);
+        // Leaders are fetched for the season the stats are from, so the two match.
+        const seasonYear = stats?.data?.requestedSeason?.year;
+        const leaders = Number.isFinite(seasonYear)
+            ? await espn.getTeamLeaders(teamId, seasonYear).catch(() => null)
+            : null;
+        return trimTeam(teamId, {
+            roster: roster.data,
+            schedule: schedule.data,
+            stats: stats?.data ?? null,
+            leaders: leaders?.data ?? null,
+        });
+    },
+    write: (teamId, value) => db().writeTeam(teamId, value),
 });
 // Logs live games whose play-by-play falls behind the scoreboard.
 const lagMonitor = new LagMonitor();
@@ -311,6 +341,7 @@ async function pollLoop() {
         lastDecision = decision;
         delayMs = decision.delayMs;
         await refreshStandings(events);
+        refreshTeams(events);
     } catch (err) {
         console.error('Poll failed:', err);
     } finally {
@@ -329,6 +360,20 @@ async function refreshStandings(events) {
     } catch (err) {
         console.error('Failed to refresh standings:', err.message);
     }
+}
+
+// Refreshes the teams that are due in the background: a full refresh is 120 requests, so
+// polling doesn't wait for it. A failure is logged and that team is retried later.
+function refreshTeams(events) {
+    teams.noteFinals(events.filter(e => gameState(e) === 'final').map(e => ({
+        id: e.id,
+        teamIds: (e.competitions?.[0]?.competitors ?? []).map(c => c?.id).filter(id => id != null).map(String),
+    })));
+    teams.refreshDue({
+        onError: (teamId, err) => console.error(`Failed to refresh ${teamId ? `team ${teamId}` : 'teams'}:`, err.message),
+    }).then((written) => {
+        if (written.length > 0) console.log(`Updating teams -- ${written.join(', ')}`);
+    }).catch(err => console.error('Failed to refresh teams:', err.message));
 }
 
 function main() {

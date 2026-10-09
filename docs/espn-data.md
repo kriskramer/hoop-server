@@ -8,13 +8,15 @@ Field names and examples below come from real responses (DET @ CHA, event `40181
 
 ## What we poll
 
-The server uses three ESPN endpoints. The first two are under `https://site.api.espn.com/apis/site/v2/sports/basketball/nba`, and the standings are under `https://site.api.espn.com/apis/v2/sports/basketball/nba` (`v2` without `site`):
+The server uses these ESPN endpoints. Most are under `https://site.api.espn.com/apis/site/v2/sports/basketball/nba`. The standings are under `https://site.api.espn.com/apis/v2/sports/basketball/nba` (`v2` without `site`), and team leaders are in the core API (`https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba`):
 
 | Endpoint | Called for | When | Stored at |
 | --- | --- | --- | --- |
 | `/scoreboard?dates=YYYYMMDD` | One ET date's games | Each poll: yesterday and today. Startup: the 5 days before and after today | `gameHeaders/{eventId}`, one per game |
 | `/summary?event={eventId}` | One game | Each poll, for games that are live or final and still settling | `gameBoxScores/{eventId}`, `gameRosters/{eventId}`, `gamePlays/{eventId}` and `gameExtras/{eventId}` |
 | `/standings?seasontype=2`, with and without `level=3` | Both conferences' regular-season standings, and their divisions | At startup, 3 minutes after a game goes final, and at least hourly | `standings`, trimmed |
+| `/teams` | The 30 team ids | Once, at startup (retried on failure) | Not stored |
+| `/teams/{id}/roster`, `/teams/{id}/schedule?seasontype=2`, `/teams/{id}/statistics?seasontype=2`, and the core API's `/seasons/{year}/types/2/teams/{id}/leaders` | One team's players, games, season stats and leaders | Every team at startup and daily, and a game's two teams 3 minutes after it goes final | `teams/{teamId}`, trimmed |
 
 Scheduled (`pre`), postponed and canceled games only get a header. Live games get all five paths refreshed every 12–14 seconds. Final games keep refreshing until ESPN stops correcting them (see [Settling after the final buzzer](architecture.md#settling-after-the-final-buzzer)).
 
@@ -36,6 +38,7 @@ gameExtras/{eventId}
     news                               league news articles
     videos                             highlight clips, trimmed (see below)
 standings                              East and West standings, trimmed (see below)
+teams/{teamId}                         one team's roster, schedule, stats and leaders, trimmed (see below)
 ```
 
 Two things apply to every stored value:
@@ -302,6 +305,35 @@ A division stores only each team's id and its games behind the division leader (
 
 The server refreshes the standings on its first poll, 3 minutes after it first sees a game as final, and at least every hour. It writes only when the trimmed standings changed, and retries a failed refresh 5 minutes later.
 
+## Team pages: `teams/{teamId}`
+
+Four requests per team, all keyed by ESPN team id:
+
+- **`/teams/{id}/roster`** (about 90 KB): `athletes[]` with bio fields (`displayName`, `shortName`, `jersey`, `position`, `displayHeight`, `displayWeight`, `age`, `experience.years`, `college`), `injuries[]` (`status` such as `"Day-To-Day"`), and `coach[]`.
+- **`/teams/{id}/schedule?seasontype=2`** (about 0.8 MB, almost all repeated team metadata): `events[]` for the current season's regular season, each a scoreboard-like event with one competition, its two competitors (`homeAway`, `score.value` once started, `winner` once final) and `status.type`. `timeValid: false` means the tip-off time isn't set yet. Without `seasontype`, ESPN returns the current season type, which in October is the preseason's 4 games.
+- **`/teams/{id}/statistics?seasontype=2`** (about 12 KB): `results.stats.categories[]` (`general`, `offensive`, `defensive`), each with `stats[]` named like `avgPoints` or `fieldGoalPct` (0–100). There are no opponent stats or league ranks. **Before the regular season starts, it returns last season**, and `requestedSeason` (`{ year: 2026, displayName: "2025-26" }`) says which. `?season=2027` returns 404 then.
+- **Core API `/seasons/{year}/types/2/teams/{id}/leaders`** (about 140 KB): `categories[]` (`pointsPerGame`, `reboundsPerGame`, ...), each with 20 `leaders[]` of `{ displayValue, value, athlete: { $ref } }`. The athlete id is at the end of the `$ref` URL. The server asks for the season the statistics came from, so the two match. A season with no games yet returns 404.
+
+`teams.js` trims them to about 11 KB per team:
+
+```
+teams/{teamId} = {
+  season: "2026-27", statsSeason: "2025-26", coach: "J.B. Bickerstaff", updatedAt: <ms>,
+  roster: [ { id, name, short, jersey, pos, ht, wt, age, exp, college, injury }, ... ],
+  schedule: [ { id, date, home, opp, status, tbd?, score?, oppScore?, win? }, ... 82 ],
+  stats: { gp, pts, reb, ast, stl, blk, tov, oreb, dreb, pf, fgm, fga, fgPct, tpm, tpa, tpPct, ftm, fta, ftPct, astTo },
+  leaders: { pts: [ { id, value }, ... 3 ], reb, ast, stl, blk, tpm }
+}
+```
+
+- **`roster`** is ordered by jersey number. `injury` is the first injury's status, or `null`. Clients build headshot URLs from the athlete id.
+- **`schedule`** is ordered by date. `id` is the event id, the same key as `gameHeaders`, but headers only exist for games the server has seen (about 5 days ahead). `opp` is the opponent's team id. `status` is `scheduled`, `live`, `final` or `postponed` (also canceled). `score` and `oppScore` are there once a game has started, and `win` once it's final.
+- **`stats`** are per-game averages and percentages, rounded to 1 decimal place (3 for `astTo`). `null` if the request failed.
+- **`leaders`** keeps each category's top 3 players **who are on the current roster**, so before the season they're last season's leaders among this season's players. `null` if there are none.
+- **`statsSeason`** is the season `stats` and `leaders` are from. When it differs from `season`, the page labels them as last season's.
+
+The server lists the teams once, then refreshes every team at startup and every 24 hours, one team at a time, in the background so polling doesn't wait. A game's two teams are refreshed 3 minutes after it's first seen as final. A team is written only when its trimmed value changed, and a failed team is retried 5 minutes later. A failed statistics or leaders request doesn't fail the team: it's stored without them.
+
 ## Summary data we don't store
 
 The summary response also includes these. `saveDetails` in `index.js` drops them. Each one is a one-line addition there if a client needs it.
@@ -317,16 +349,17 @@ The summary response also includes these. `saveDetails` in `index.js` drops them
 
 ## Other ESPN endpoints
 
-The server doesn't call any of these. They all returned data when tested on 2026-10-03, need no key, and are just as unofficial as the endpoints above.
+The server doesn't call these, except the team endpoints marked as stored. They all returned data when tested on 2026-10-03, need no key, and are just as unofficial as the endpoints above.
 
 ### Site API: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba`
 
 | Path | Contents |
 | --- | --- |
-| `/teams` | All 30 teams with logos and colors |
+| `/teams` | All 30 teams with logos and colors. Called for the team ids |
 | `/teams/{teamId}` | One team: record, venue, next event |
-| `/teams/{teamId}/roster` | Players (bio, position, jersey, headshot) and coach |
-| `/teams/{teamId}/schedule` | The team's full season schedule and results |
+| `/teams/{teamId}/roster` | Players (bio, position, jersey, headshot) and coach. Stored, see [Team pages](#team-pages-teamsteamid) |
+| `/teams/{teamId}/schedule` | The team's full season schedule and results. Stored |
+| `/teams/{teamId}/statistics` | The team's season stats. Stored |
 | `/injuries` | League-wide injury report, including teams not playing today |
 | `/news` | League news articles (the same feed stored in `gameExtras/news`) |
 

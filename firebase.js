@@ -19,6 +19,8 @@ const write = (path, value) => database.ref(path).set(toFirebaseSafe(value));
 module.exports = {
     // League standings, trimmed by standings.js.
     writeStandings: (standings) => write('standings', standings),
+    // One team's roster, schedule and stats, trimmed by teams.js.
+    writeTeam: (teamId, team) => write(`teams/${teamId}`, team),
     writeGameExtras: (eventId, extras) => write(`gameExtras/${eventId}`, extras),
     // Replaces every play for a game; used for the first write after startup.
     replacePlays: (eventId, playsByKey) => write(`gamePlays/${eventId}`, playsByKey),

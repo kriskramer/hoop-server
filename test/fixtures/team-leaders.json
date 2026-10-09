@@ -1,0 +1,681 @@
+{
+ "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/types/2/teams/8/leaders?lang=en&region=us",
+ "id": "0",
+ "name": "Total",
+ "abbreviation": "Total",
+ "type": "total",
+ "categories": [
+  {
+   "name": "pointsPerGame",
+   "abbreviation": "PTS",
+   "leaders": [
+    {
+     "displayValue": "23.9",
+     "value": 23.921875,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "19.5",
+     "value": 19.5,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "13.3",
+     "value": 13.269841194152832,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "12.2",
+     "value": 12.194805145263672,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3157465?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "10.0",
+     "value": 10.017241477966309,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "9.9",
+     "value": 9.876712799072266,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "assistsPerGame",
+   "abbreviation": "AST",
+   "leaders": [
+    {
+     "displayValue": "9.9",
+     "value": 9.90625,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.9",
+     "value": 3.8611111640930176,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/5107199?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.1",
+     "value": 3.1232876777648926,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.7",
+     "value": 2.6500000953674316,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/2991043?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.5",
+     "value": 2.492063522338867,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.1",
+     "value": 2.0649349689483643,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3157465?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "reboundsPerGame",
+   "abbreviation": "REB",
+   "leaders": [
+    {
+     "displayValue": "10.5",
+     "value": 10.528571128845215,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "5.7",
+     "value": 5.726027488708496,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "5.5",
+     "value": 5.546875,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "5.1",
+     "value": 5.126984119415283,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "5.0",
+     "value": 5,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "4.5",
+     "value": 4.523077011108398,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278562?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "defensiveReboundsPerGame",
+   "abbreviation": "DRPG",
+   "leaders": [
+    {
+     "displayValue": "6.7",
+     "value": 6.742856979370117,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "4.7",
+     "value": 4.671875,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "4.3",
+     "value": 4.253968238830566,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "4.0",
+     "value": 4,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433378?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.7",
+     "value": 3.6712329387664795,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.3",
+     "value": 3.344827651977539,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "offensiveReboundsPerGame",
+   "abbreviation": "ORPG",
+   "leaders": [
+    {
+     "displayValue": "3.8",
+     "value": 3.7857143878936768,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.1",
+     "value": 2.0547945499420166,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.0",
+     "value": 2,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278562?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.7",
+     "value": 1.6551724672317505,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.5",
+     "value": 1.4666666984558105,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4397882?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.1",
+     "value": 1.0641025304794312,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4683771?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "stealsPerGame",
+   "abbreviation": "STL",
+   "leaders": [
+    {
+     "displayValue": "2.0",
+     "value": 2,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.4",
+     "value": 1.4375,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.2",
+     "value": 1.2439024448394775,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/2596112?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.2",
+     "value": 1.1794872283935547,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4683771?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "0.9",
+     "value": 0.920634925365448,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "0.9",
+     "value": 0.8888888955116272,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/5107199?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocksPerGame",
+   "abbreviation": "BLK",
+   "leaders": [
+    {
+     "displayValue": "1.6",
+     "value": 1.6034482717514038,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "0.9",
+     "value": 0.9452054500579834,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "0.9",
+     "value": 0.9230769276618958,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278562?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "0.8",
+     "value": 0.84375,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "0.8",
+     "value": 0.8428571224212646,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "0.7",
+     "value": 0.6833333373069763,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/2991043?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "fieldGoalPercentage",
+   "abbreviation": "FG%",
+   "leaders": [
+    {
+     "displayValue": "65.0",
+     "value": 65.00599670410156,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "52.5",
+     "value": 52.51300048828125,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "46.9",
+     "value": 46.888999938964844,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "46.1",
+     "value": 46.0890007019043,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "45.6",
+     "value": 45.558998107910156,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3157465?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "61.7",
+     "value": 61.652000427246094,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278562?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "PER",
+   "abbreviation": "PER",
+   "leaders": [
+    {
+     "displayValue": "26.1",
+     "value": 26.134000778198242,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "24.3",
+     "value": 24.309999465942383,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278562?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "21.7",
+     "value": 21.68600082397461,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "17.0",
+     "value": 16.982999801635742,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4397882?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "16.2",
+     "value": 16.23200035095215,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "15.2",
+     "value": 15.199999809265137,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "3PointMadePerGame",
+   "abbreviation": "3PM",
+   "leaders": [
+    {
+     "displayValue": "2.9",
+     "value": 2.857142925262451,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3157465?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.0",
+     "value": 1.953125,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.3",
+     "value": 1.3015873432159424,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.1",
+     "value": 1.1463414430618286,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/2596112?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.3",
+     "value": 1.2727272510528564,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433218?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "1.2",
+     "value": 1.2000000476837158,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4066372?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "doubleDouble",
+   "abbreviation": "DBLDBL",
+   "leaders": [
+    {
+     "displayValue": "41.0",
+     "value": 41,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "38.0",
+     "value": 38,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.0",
+     "value": 3,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.0",
+     "value": 3,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4278562?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.0",
+     "value": 3,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "3.0",
+     "value": 3,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/5107199?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "minutesPerGame",
+   "abbreviation": "MPG",
+   "leaders": [
+    {
+     "displayValue": "33.9",
+     "value": 33.9375,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "28.2",
+     "value": 28.22857093811035,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "27.7",
+     "value": 27.69841194152832,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "27.4",
+     "value": 27.441558837890625,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3157465?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "26.0",
+     "value": 25.97260284423828,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "22.7",
+     "value": 22.70689582824707,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "foulsPerGame",
+   "abbreviation": "PFPG",
+   "leaders": [
+    {
+     "displayValue": "3.1",
+     "value": 3.0625,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.9",
+     "value": 2.8620688915252686,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.8",
+     "value": 2.7857143878936768,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.7",
+     "value": 2.7123286724090576,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.3",
+     "value": 2.346153736114502,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4683771?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "2.2",
+     "value": 2.1818182468414307,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3157465?lang=en&region=us"
+     }
+    }
+   ]
+  },
+  {
+   "name": "rating",
+   "abbreviation": "RAT",
+   "leaders": [
+    {
+     "displayValue": "23.9 PPG, 5.5 RPG, 9.9 APG, 1.4 SPG, 0.8 BPG",
+     "value": 45.212501525878906,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432166?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "19.5 PPG, 10.5 RPG, 2.0 APG, 0.8 SPG, 0.8 BPG",
+     "value": 37.62928771972656,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4433621?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "13.3 PPG, 5.1 RPG, 2.5 APG, 0.9 SPG, 0.4 BPG",
+     "value": 24.068254470825195,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/6440?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "9.9 PPG, 5.7 RPG, 3.1 APG, 2.0 SPG, 0.9 BPG",
+     "value": 22.907533645629883,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4684742?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "10.0 PPG, 5.0 RPG, 1.1 APG, 0.3 SPG, 1.6 BPG",
+     "value": 19.966381072998047,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/4432810?lang=en&region=us"
+     }
+    },
+    {
+     "displayValue": "12.2 PPG, 2.7 RPG, 2.1 APG, 0.6 SPG, 0.3 BPG",
+     "value": 19.827922821044922,
+     "athlete": {
+      "$ref": "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/2026/athletes/3157465?lang=en&region=us"
+     }
+    }
+   ]
+  }
+ ]
+}

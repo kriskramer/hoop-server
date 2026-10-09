@@ -1,0 +1,656 @@
+{
+ "timestamp": "2026-10-09T16:19:57Z",
+ "status": "success",
+ "season": {
+  "year": 2027,
+  "displayName": "2026-27",
+  "type": 1,
+  "name": "Preseason"
+ },
+ "athletes": [
+  {
+   "id": "3908845",
+   "uid": "s:40~l:46~a:3908845",
+   "guid": "796e45a0-b375-dfdf-c240-b7550add4966",
+   "alternateIds": {
+    "sdr": "3908845"
+   },
+   "firstName": "John",
+   "lastName": "Collins",
+   "fullName": "John Collins",
+   "displayName": "John Collins",
+   "shortName": "J. Collins",
+   "weight": 226,
+   "displayWeight": "226 lbs",
+   "height": 81,
+   "displayHeight": "6' 9\"",
+   "age": 29,
+   "dateOfBirth": "1997-09-23T07:00Z",
+   "debutYear": 2017,
+   "links": [
+    {
+     "language": "en-US",
+     "rel": [
+      "playercard",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/_/id/3908845/john-collins",
+     "text": "Player Card",
+     "shortText": "Player Card",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "stats",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/stats/_/id/3908845/john-collins",
+     "text": "Stats",
+     "shortText": "Stats",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "stats",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:3908845&section=stats",
+     "text": "Stats",
+     "shortText": "Stats",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "splits",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/splits/_/id/3908845/john-collins",
+     "text": "Splits",
+     "shortText": "Splits",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "gamelog",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/gamelog/_/id/3908845/john-collins",
+     "text": "Game Log",
+     "shortText": "Game Log",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "gamelog",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:3908845&section=gamelog",
+     "text": "Game Log",
+     "shortText": "Game Log",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "news",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/news/_/id/3908845/john-collins",
+     "text": "News",
+     "shortText": "News",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "news",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:3908845&section=news",
+     "text": "News",
+     "shortText": "News",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "bio",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/bio/_/id/3908845/john-collins",
+     "text": "Bio",
+     "shortText": "Bio",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "bio",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:3908845&section=bio",
+     "text": "Bio",
+     "shortText": "Bio",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "overview",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/_/id/3908845/john-collins",
+     "text": "Overview",
+     "shortText": "Overview",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "overview",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:3908845",
+     "text": "Overview",
+     "shortText": "Overview",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "advancedstats",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/advancedstats/_/id/3908845/john-collins",
+     "text": "Advanced Stats",
+     "shortText": "Advanced Stats",
+     "isExternal": false,
+     "isPremium": false
+    }
+   ],
+   "birthPlace": {
+    "city": "West Palm Beach",
+    "state": "FL",
+    "country": "USA"
+   },
+   "college": {
+    "id": "154",
+    "guid": "877f20e8-720c-32d3-a900-8f7960900cfa",
+    "mascot": "Demon Deacons",
+    "name": "Wake Forest",
+    "shortName": "Wake Forest",
+    "abbrev": "WAKE",
+    "logos": [
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/154.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "default"
+      ],
+      "lastUpdated": "2025-12-19T22:33Z"
+     },
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/154.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "dark"
+      ],
+      "lastUpdated": "2025-12-19T22:35Z"
+     }
+    ]
+   },
+   "slug": "john-collins",
+   "headshot": {
+    "href": "https://a.espncdn.com/i/headshots/nba/players/full/3908845.png",
+    "alt": "John Collins"
+   },
+   "jersey": "20",
+   "position": {
+    "id": "7",
+    "name": "Forward",
+    "displayName": "Forward",
+    "abbreviation": "F",
+    "leaf": false
+   },
+   "injuries": [],
+   "contracts": [
+    {
+     "salary": 26580000,
+     "season": {
+      "year": 2026,
+      "startDate": "2025-10-01T07:00Z",
+      "endDate": "2026-06-27T06:59Z"
+     }
+    },
+    {
+     "salary": 26580000,
+     "season": {
+      "year": 2025,
+      "startDate": "2024-09-24T07:00Z",
+      "endDate": "2025-06-27T06:59Z"
+     }
+    },
+    {
+     "salary": 25340000,
+     "season": {
+      "year": 2024,
+      "startDate": "2023-10-05T07:00Z",
+      "endDate": "2024-06-21T06:59Z"
+     }
+    },
+    {
+     "salary": 23500000,
+     "season": {
+      "year": 2023,
+      "startDate": "2022-08-30T07:00Z",
+      "endDate": "2023-06-24T06:59Z"
+     }
+    },
+    {
+     "salary": 23000000,
+     "season": {
+      "year": 2022,
+      "startDate": "2021-09-22T07:00Z",
+      "endDate": "2022-06-20T06:59Z"
+     }
+    },
+    {
+     "salary": 4137302,
+     "season": {
+      "year": 2021,
+      "startDate": "2020-12-02T08:00Z",
+      "endDate": "2021-07-23T06:59Z"
+     }
+    },
+    {
+     "salary": 2686560,
+     "season": {
+      "year": 2020,
+      "startDate": "2019-09-28T07:00Z",
+      "endDate": "2020-10-22T06:59Z"
+     }
+    },
+    {
+     "salary": 2299080,
+     "season": {
+      "year": 2019,
+      "startDate": "2018-09-13T07:00Z",
+      "endDate": "2019-06-24T06:59Z"
+     }
+    },
+    {
+     "salary": 2299080,
+     "season": {
+      "year": 2018,
+      "startDate": "2017-09-30T07:00Z",
+      "endDate": "2018-07-01T06:59Z"
+     }
+    }
+   ],
+   "experience": {
+    "years": 10
+   },
+   "status": {
+    "id": "1",
+    "name": "Active",
+    "type": "active",
+    "abbreviation": "Active"
+   }
+  },
+  {
+   "id": "4433621",
+   "uid": "s:40~l:46~a:4433621",
+   "guid": "6e30fca4-6751-37b6-b09a-2e4ecbec716e",
+   "alternateIds": {
+    "sdr": "4433621"
+   },
+   "firstName": "Jalen",
+   "lastName": "Duren",
+   "fullName": "Jalen Duren",
+   "displayName": "Jalen Duren",
+   "shortName": "J. Duren",
+   "weight": 250,
+   "displayWeight": "250 lbs",
+   "height": 82,
+   "displayHeight": "6' 10\"",
+   "age": 22,
+   "dateOfBirth": "2003-11-18T08:00Z",
+   "links": [
+    {
+     "language": "en-US",
+     "rel": [
+      "playercard",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/_/id/4433621/jalen-duren",
+     "text": "Player Card",
+     "shortText": "Player Card",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "stats",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/stats/_/id/4433621/jalen-duren",
+     "text": "Stats",
+     "shortText": "Stats",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "stats",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:4433621&section=stats",
+     "text": "Stats",
+     "shortText": "Stats",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "splits",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/splits/_/id/4433621/jalen-duren",
+     "text": "Splits",
+     "shortText": "Splits",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "gamelog",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/gamelog/_/id/4433621/jalen-duren",
+     "text": "Game Log",
+     "shortText": "Game Log",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "gamelog",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:4433621&section=gamelog",
+     "text": "Game Log",
+     "shortText": "Game Log",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "news",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/news/_/id/4433621/jalen-duren",
+     "text": "News",
+     "shortText": "News",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "news",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:4433621&section=news",
+     "text": "News",
+     "shortText": "News",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "bio",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/bio/_/id/4433621/jalen-duren",
+     "text": "Bio",
+     "shortText": "Bio",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "bio",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:4433621&section=bio",
+     "text": "Bio",
+     "shortText": "Bio",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "overview",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/_/id/4433621/jalen-duren",
+     "text": "Overview",
+     "shortText": "Overview",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "overview",
+      "sportscenter",
+      "app",
+      "athlete"
+     ],
+     "href": "sportscenter://x-callback-url/showClubhouse?uid=s:40~l:46~a:4433621",
+     "text": "Overview",
+     "shortText": "Overview",
+     "isExternal": false,
+     "isPremium": false
+    },
+    {
+     "language": "en-US",
+     "rel": [
+      "advancedstats",
+      "desktop",
+      "athlete"
+     ],
+     "href": "https://www.espn.com/nba/player/advancedstats/_/id/4433621/jalen-duren",
+     "text": "Advanced Stats",
+     "shortText": "Advanced Stats",
+     "isExternal": false,
+     "isPremium": false
+    }
+   ],
+   "birthPlace": {
+    "city": "Sharon Hill",
+    "state": "PA",
+    "country": "USA"
+   },
+   "college": {
+    "id": "235",
+    "guid": "8d093704-f81a-3c33-aa6d-e41d2b13677c",
+    "mascot": "Tigers",
+    "name": "Memphis",
+    "shortName": "Memphis",
+    "abbrev": "MEM",
+    "logos": [
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/235.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "default"
+      ],
+      "lastUpdated": "2026-07-01T04:35Z"
+     },
+     {
+      "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/235.png",
+      "width": 500,
+      "height": 500,
+      "alt": "",
+      "rel": [
+       "full",
+       "dark"
+      ],
+      "lastUpdated": "2026-07-01T04:34Z"
+     }
+    ]
+   },
+   "slug": "jalen-duren",
+   "headshot": {
+    "href": "https://a.espncdn.com/i/headshots/nba/players/full/4433621.png",
+    "alt": "Jalen Duren"
+   },
+   "jersey": "0",
+   "position": {
+    "id": "9",
+    "name": "Center",
+    "displayName": "Center",
+    "abbreviation": "C",
+    "leaf": false
+   },
+   "injuries": [
+    {
+     "status": "Day-To-Day",
+     "date": "2026-10-07T18:57Z"
+    }
+   ],
+   "contracts": [
+    {
+     "salary": 6483144,
+     "season": {
+      "year": 2026,
+      "startDate": "2025-10-01T07:00Z",
+      "endDate": "2026-06-27T06:59Z"
+     }
+    },
+    {
+     "salary": 4536840,
+     "season": {
+      "year": 2025,
+      "startDate": "2024-09-24T07:00Z",
+      "endDate": "2025-06-27T06:59Z"
+     }
+    },
+    {
+     "salary": 4330680,
+     "season": {
+      "year": 2024,
+      "startDate": "2023-10-05T07:00Z",
+      "endDate": "2024-06-21T06:59Z"
+     }
+    },
+    {
+     "salary": 4124280,
+     "season": {
+      "year": 2023,
+      "startDate": "2022-08-30T07:00Z",
+      "endDate": "2023-06-24T06:59Z"
+     }
+    }
+   ],
+   "experience": {
+    "years": 5
+   },
+   "status": {
+    "id": "1",
+    "name": "Active",
+    "type": "active",
+    "abbreviation": "Active"
+   }
+  }
+ ],
+ "coach": [
+  {
+   "id": "2613478",
+   "firstName": "J.B.",
+   "lastName": "Bickerstaff",
+   "experience": 8
+  }
+ ],
+ "team": {
+  "id": "8",
+  "abbreviation": "DET",
+  "location": "Detroit",
+  "name": "Pistons",
+  "displayName": "Detroit Pistons",
+  "clubhouse": "https://www.espn.com/nba/team/_/name/det/detroit-pistons",
+  "color": "1d428a",
+  "logo": "https://a.espncdn.com/i/teamlogos/nba/500/det.png",
+  "recordSummary": "1-0",
+  "standingSummary": "1st in Central Division"
+ }
+}
