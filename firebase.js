@@ -17,6 +17,8 @@ const write = (path, value) => database.ref(path).set(toFirebaseSafe(value));
 // All game paths are keyed by ESPN event id. Each write returns its promise so callers can
 // await it.
 module.exports = {
+    // League standings, trimmed by standings.js.
+    writeStandings: (standings) => write('standings', standings),
     writeGameExtras: (eventId, extras) => write(`gameExtras/${eventId}`, extras),
     // Replaces every play for a game; used for the first write after startup.
     replacePlays: (eventId, playsByKey) => write(`gamePlays/${eventId}`, playsByKey),

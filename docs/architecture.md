@@ -42,12 +42,13 @@ flowchart LR
 | File | Responsibility |
 | --- | --- |
 | `index.js` | Entry point. Runs the startup backfill and the polling loop, decides which games need data, and writes it to Firebase. |
-| `espn.js` | Thin HTTP client over ESPN's site API. A shared axios instance applies a 10-second timeout. Functions return axios promises and throw on failure. |
+| `espn.js` | Thin HTTP client over ESPN's site API and standings endpoint. A shared axios instance applies a 10-second timeout. Functions return axios promises and throw on failure. |
 | `dates.js` | `etDate(offsetDays)` returns `YYYY-MM-DD` dates in Eastern Time, because NBA schedules are keyed by ET dates. |
 | `firebase.js` | Initializes the Firebase Admin SDK. Exposes write functions for plays and extras, generic `set` and `update` for values that are already Firebase-safe, and `watch` for listening to a path. Each write returns its promise. |
 | `plays.js` | `buildPlayNodes` turns ESPN's plays into keyed Firebase nodes; `diffPlays` works out which plays changed since the last write; `gameEndedAt` finds when a final game ended. |
 | `diff.js` | `diffPaths(before, after)` builds a multi-path update of only the changed leaves, and `writeChanges` writes a value as that update (or as a full `set` the first time). Used for headers, box scores, and reaction totals. |
 | `reactions.js` | `ReactionCounter` listens to one game's votes in `gameReactions` and writes `gameReactionCounts`, at most once every 1.5 s. `countReactions` is the pure counting step. |
+| `standings.js` | `trimStandings` cuts ESPN's standings down to each conference's rows; `StandingsRefresher` decides when to refresh them (startup, 3 minutes after a game goes final, at least hourly) and writes `standings` only when they changed. |
 | `roster.js` | `buildRoster(boxscore)` turns the summary's player tables into `gameRosters/{eventId}`: each athlete's name, short name, jersey, team, and starter flag. |
 | `lag.js` | `feedLag` compares a live game's scoreboard clock and score with its last play; `LagMonitor` logs once when the play-by-play has been more than 90 s or 7 points behind for a minute, and once when it catches up. Log only: an ESPN feed stall can't be fixed here. |
 | `schedule.js` | `gameState` classifies ESPN game status; `nextPollDelay` decides how long to wait before the next poll based on the games just seen. Pure, so it's tested without network or Firebase. |
@@ -59,6 +60,7 @@ flowchart LR
 | --- | --- | --- |
 | `getScoreboard(date)` | `/apis/site/v2/sports/basketball/nba/scoreboard?dates=YYYYMMDD` | All games on one date, with status, scores, and line scores |
 | `getSummary(eventId)` | `/apis/site/v2/sports/basketball/nba/summary?event={id}` | One game's box score, plays, win probability, leaders, and game info |
+| `getStandings()` | `/apis/v2/sports/basketball/nba/standings?seasontype=2` | Both conferences' regular-season standings |
 
 The API is public, needs no key or special headers, and returns `Cache-Control: max-age=1`, so live data is close to real time. It is also **unofficial and undocumented**: ESPN publishes no rate limits and can change it without notice. The NBA scoreboard doesn't support date ranges (`dates=A-B` returns 400), so the server makes one request per date.
 
@@ -102,12 +104,16 @@ sequenceDiagram
     end
     Idx->>Sched: nextPollDelay(games seen)
     Sched-->>Idx: 12–14 s, or up to 30 min
+    opt a game went final 3 min ago, or an hour has passed
+        Idx->>ESPN: standings
+        Idx->>DB: standings, if changed
+    end
     Idx->>Timer: schedule next pollLoop()
 ```
 
 Each poll schedules the next one only after it finishes, so polls never overlap even when ESPN is slow. With the 10-second request timeout, a stuck request can delay a poll but can't block the loop forever.
 
-Each live or settling game costs one summary request per poll, plus two scoreboard requests per poll in total. If a poll throws unexpectedly, `pollLoop` logs it and schedules the next poll in `RETRY_MS` (1 min), so the loop never stops.
+Each live or settling game costs one summary request per poll, plus two scoreboard requests per poll in total. A failed standings refresh is logged and retried 5 minutes later, and doesn't hold up polling. If a poll throws unexpectedly, `pollLoop` logs it and schedules the next poll in `RETRY_MS` (1 min), so the loop never stops.
 
 ### Adaptive polling
 
@@ -158,7 +164,7 @@ While any game is settling, the scheduler stays in fast mode. A game is added to
 
 ## Firebase data model
 
-The server writes six top-level paths, each keyed by ESPN event id. Headers and box scores are written as changed fields, plays incrementally, and extras whole (see below). All values pass through `toFirebaseSafe` first.
+The server writes six top-level paths keyed by ESPN event id, plus `standings`. Headers and box scores are written as changed fields, plays incrementally, and extras whole (see below). All values pass through `toFirebaseSafe` first.
 
 ```
 gameHeaders/{eventId}         = <scoreboard event>                 ~13 KB
@@ -166,8 +172,9 @@ gameBoxScores/{eventId}       = { boxscore, leaders, gameInfo }    ~40 KB
 gameRosters/{eventId}/{athleteId} = { name, short, jersey, teamId, starter }  ~2–3 KB
 gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per play
 gameExtras/{eventId}          = { injuries, pickcenter, odds,
-                                  againstTheSpread, standings, news }  ~45 KB
+                                  againstTheSpread, news, videos }  ~35 KB
 gameReactionCounts/{eventId}/{playKey} = { cheer: 3, wow: 1 }      ~40 B per play (non-zero totals only)
+standings                     = { season, seasonType, updatedAt, east, west }  ~5.5 KB
 ```
 
 - **`gameHeaders`** holds ESPN's scoreboard `event` as-is: teams, scores, line scores, status (`status.type.shortDetail` is a display string such as "Q3 4:12"), leaders, broadcasts, and venue. Once a game is final, the server adds **`endedAt`** (milliseconds): the "End Game" play's wallclock, else the latest play's (`gameEndedAt` in `plays.js`). With no plays, it's when the server first saw the game as final. The database rules close Watch Party comments and reactions 10 minutes after `endedAt`, and the After Party chat 3 days after it. `endTimes` keeps it in memory so every later header write includes it. It comes from the plays, so after a restart the backfill writes the same value again.
@@ -177,7 +184,8 @@ gameReactionCounts/{eventId}/{playKey} = { cheer: 3, wow: 1 }      ~40 B per pla
   - **Key**: the play's `sequenceNumber`, zero-padded to six digits (`000142`). Sequence numbers are unique within a game and never change.
   - **`order`**: the play's position in ESPN's list. **Clients must sort by `order`, not by key.** ESPN lists plays in game-clock order, but sequence numbers follow the order plays were entered, so a play logged late has a higher number than the plays around it (5 of 6 games checked had such plays).
   - **`winProbability`**: `{ homeWinPercentage, tiePercentage }` for that play, or `null`.
-- **`gameExtras`** holds the summary's injuries, betting lines, standings, and league news. It's separate from `gameBoxScores` so live box score listeners don't re-download it, and its changes don't delay [settling](#settling-after-the-final-buzzer). See [espn-data.md](espn-data.md#injuries-odds-standings-and-news-gameextras).
+- **`gameExtras`** holds the summary's injuries, betting lines, league news, and highlight clips. It's separate from `gameBoxScores` so live box score listeners don't re-download it, and its changes don't delay [settling](#settling-after-the-final-buzzer). See [espn-data.md](espn-data.md#injuries-odds-news-and-highlights-gameextras).
+- **`standings`** holds both conferences' regular-season standings, trimmed to about 5.5 KB. It's written whole, only when it changed. See [espn-data.md](espn-data.md#standings-standings).
 
 ### Incremental play writes
 

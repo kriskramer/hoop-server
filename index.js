@@ -8,6 +8,7 @@ const { toFirebaseSafe } = require('./sanitize');
 const { feedLag, LagMonitor } = require('./lag');
 const { trimVideos } = require('./videos');
 const { buildRoster } = require('./roster');
+const { StandingsRefresher } = require('./standings');
 
 const BACKFILL_DAYS = 5;
 
@@ -37,6 +38,11 @@ const writtenExtras = new Map();
 const endTimes = new Map();
 // eventId -> ReactionCounter for live and settling games.
 const reactionCounters = new Map();
+// Keeps `standings` current: shortly after each final, and hourly otherwise.
+const standings = new StandingsRefresher({
+    fetch: async () => (await espn.getStandings()).data,
+    write: (value) => db().writeStandings(value),
+});
 // Logs live games whose play-by-play falls behind the scoreboard.
 const lagMonitor = new LagMonitor();
 let pollCount = 0;
@@ -188,7 +194,7 @@ async function saveDetails(event, live) {
     return boxChanged || playsChanged;
 }
 
-// Injuries, odds, standings, news, and highlight clips. Kept apart from the box score so clients listening to
+// Injuries, odds, news, and highlight clips. Kept apart from the box score so clients listening to
 // live stats don't re-download them on every update. Not counted as a change for settling,
 // because league news keeps changing long after a game ends.
 async function saveExtras(eventId, data) {
@@ -197,7 +203,6 @@ async function saveExtras(eventId, data) {
         pickcenter: data.pickcenter ?? null,
         odds: data.odds ?? null,
         againstTheSpread: data.againstTheSpread ?? null,
-        standings: data.standings ?? null,
         news: data.news ?? null,
         videos: trimVideos(data.videos),
     };
@@ -299,10 +304,24 @@ async function pollLoop() {
         }
         lastDecision = decision;
         delayMs = decision.delayMs;
+        await refreshStandings(events);
     } catch (err) {
         console.error('Poll failed:', err);
     } finally {
         setTimeout(pollLoop, delayMs);
+    }
+}
+
+// Refreshes the standings if a game just went final or the last refresh is old. A failure
+// is logged and retried later; it doesn't hold up polling.
+async function refreshStandings(events) {
+    standings.noteFinals(events.filter(e => gameState(e) === 'final').map(e => e.id));
+    try {
+        if (await standings.refreshIfDue()) {
+            console.log('Updating standings');
+        }
+    } catch (err) {
+        console.error('Failed to refresh standings:', err.message);
     }
 }
 

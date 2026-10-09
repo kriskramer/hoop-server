@@ -8,16 +8,17 @@ Field names and examples below come from real responses (DET @ CHA, event `40181
 
 ## What we poll
 
-The server uses two ESPN endpoints, both under `https://site.api.espn.com/apis/site/v2/sports/basketball/nba`:
+The server uses three ESPN endpoints. The first two are under `https://site.api.espn.com/apis/site/v2/sports/basketball/nba`, and the standings are under `https://site.api.espn.com/apis/v2/sports/basketball/nba` (`v2` without `site`):
 
 | Endpoint | Called for | When | Stored at |
 | --- | --- | --- | --- |
 | `/scoreboard?dates=YYYYMMDD` | One ET date's games | Each poll: yesterday and today. Startup: the 5 days before and after today | `gameHeaders/{eventId}`, one per game |
 | `/summary?event={eventId}` | One game | Each poll, for games that are live or final and still settling | `gameBoxScores/{eventId}`, `gameRosters/{eventId}`, `gamePlays/{eventId}` and `gameExtras/{eventId}` |
+| `/standings?seasontype=2` | Both conferences' regular-season standings | At startup, 3 minutes after a game goes final, and at least hourly | `standings`, trimmed |
 
 Scheduled (`pre`), postponed and canceled games only get a header. Live games get all five paths refreshed every 12–14 seconds. Final games keep refreshing until ESPN stops correcting them (see [Settling after the final buzzer](architecture.md#settling-after-the-final-buzzer)).
 
-Every path is keyed by **ESPN event id** (for example `401811026`). The same id appears in the header, the box score, the plays, and the extras, so clients join on it.
+Every game path is keyed by **ESPN event id** (for example `401811026`). The same id appears in the header, the box score, the plays, and the extras, so clients join on it.
 
 ## Firebase layout
 
@@ -32,9 +33,9 @@ gamePlays/{eventId}/{playKey}          one node per play, with order and winProb
 gameExtras/{eventId}
     injuries                           both teams' injury reports
     pickcenter, odds, againstTheSpread betting lines and ATS records
-    standings                          conference standings
     news                               league news articles
     videos                             highlight clips, trimmed (see below)
+standings                              East and West standings, trimmed (see below)
 ```
 
 Two things apply to every stored value:
@@ -238,15 +239,15 @@ Free throws, jump balls, timeouts and other plays without a location use the sen
 
 `winProbability.homeWinPercentage` is a fraction from 0 to 1. The away team's chance is `1 - homeWinPercentage - tiePercentage`. In the sample game every play had an entry (506 plays, 506 entries).
 
-## Injuries, odds, standings, news, and highlights: `gameExtras`
+## Injuries, odds, news, and highlights: `gameExtras`
 
 The server writes these parts of the summary from the same summary request as the box score. All but `videos` are stored unchanged:
 
 ```js
-{ injuries, pickcenter, odds, againstTheSpread, standings, news, videos }
+{ injuries, pickcenter, odds, againstTheSpread, news, videos }
 ```
 
-They're kept out of `gameBoxScores` so clients listening to live stats don't re-download about 45 KB of news and standings on every box score change. The node is rewritten whole, and only when something in it changed. Changes here don't count toward [settling](architecture.md#settling-after-the-final-buzzer), because league news keeps changing long after a game ends.
+They're kept out of `gameBoxScores` so clients listening to live stats don't re-download about 35 KB of news and injuries on every box score change. The node is rewritten whole, and only when something in it changed. Changes here don't count toward [settling](architecture.md#settling-after-the-final-buzzer), because league news keeps changing long after a game ends.
 
 | Key | Contents |
 | --- | --- |
@@ -254,7 +255,6 @@ They're kept out of `gameBoxScores` so clients listening to live stats don't re-
 | `pickcenter[]` | One entry per betting provider: `details` (`"CHA -6.5"`), `spread`, `overUnder`, `overOdds`, `underOdds`, and `homeTeamOdds`/`awayTeamOdds` with `moneyLine`, `spreadOdds` and `favorite` |
 | `odds` | Usually empty; `pickcenter` has the lines |
 | `againstTheSpread[]` | Each team's record against the spread this season |
-| `standings` | `{ header: "2026-27 Standings", groups: [ ... ] }`, one group per conference involved, with each team's record |
 | `news` | `{ header, link, articles: [ ... ] }`. League-wide, not specific to this game |
 | `videos[]` | ESPN highlight clips, oldest first, trimmed by `videos.js` to `{ id, headline, duration, publishedAt, thumbnail, url }`. `url` is the clip's espn.com page. In-game clips appear a few minutes after the play; the recap appears shortly after the final buzzer. The stream and MP4 links, and the per-country restrictions (Canada isn't on the list), aren't stored, because the app links out to espn.com instead of playing ESPN's files |
 
@@ -262,7 +262,37 @@ Things to know:
 
 - **Captured only once a game starts.** The summary is fetched for live and final games only, so a scheduled game has no `gameExtras` node yet. The injury report and lines are written from tip-off onward.
 - **`pickcenter` is empty until close to the game.** It was empty for preseason games and for regular games two days out. When present during or after a game, it shows the line ESPN currently has, which may be the closing line.
-- **`standings` and `news` repeat across games.** Every game played the same day stores the same news, and games in the same conference store the same standings.
+- **`news` repeats across games.** Every game played the same day stores the same news.
+- **The summary's `standings` isn't stored.** It covers only the game's conferences and repeats across games. The full standings are in [`standings`](#standings-standings) instead. Until 2026-10-09 it was stored here, so older games' extras still have it.
+
+## Standings: `standings`
+
+`GET https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?seasontype=2` returns `children[]`, one per conference (`abbreviation` `"East"` or `"West"`), each with `standings.entries[]` of 15 teams. Each entry has `team` (id, names, logos, links) and about 22 `stats`, each an object with `name`, `type`, `abbreviation`, `value` and `displayValue`. Records such as home and road have a `summary` (`"12-5"`) instead of a `value`. `?level=3` nests the divisions under the conferences.
+
+Without `seasontype`, it returns the current season type, which in October is the preseason (`seasonType: 1`, with preseason records). The server always asks for the regular season. Until the first regular-season games, every team is 0-0 with `playoffSeed` 0, and the entries are in alphabetical order, not by seed.
+
+The response is about 164 KB, so `standings.js` trims it to about 5.5 KB:
+
+```
+standings = {
+  season: "2026-27", seasonType: 2, updatedAt: <ms>,
+  east: [ { teamId, abbr, name, seed, wins, losses, pct, gb, streak, home, road, conf, div, l10, diff }, ... 15 ],
+  west: [ ... 15 ]
+}
+```
+
+| Field | From (`stats[].type`) | Example |
+| --- | --- | --- |
+| `seed` | `playoffseed` value. `null` before the season, when ESPN sends 0 | `3` |
+| `wins`, `losses`, `pct` | `wins`, `losses`, `winpercent` values | `12`, `5`, `0.706` |
+| `gb` | `gamesbehind` display value. `"-"` for the leader | `"1.5"` |
+| `streak` | `streak` display value | `"W3"` |
+| `home`, `road`, `conf`, `div`, `l10` | `home`, `road`, `vsconf`, `vsdiv`, `lasttengames` display values | `"7-2"` |
+| `diff` | `differential`: average point differential per game | `-4.5` |
+
+Stats are looked up by `type` rather than by position or `name` (`"vs. Div."`). Each conference is ordered by seed, then by name for teams without one. `updatedAt` is when the server last wrote a change.
+
+The server refreshes the standings on its first poll, 3 minutes after it first sees a game as final, and at least every hour. It writes only when the trimmed standings changed, and retries a failed refresh 5 minutes later.
 
 ## Summary data we don't store
 
@@ -292,7 +322,7 @@ The server doesn't call any of these. They all returned data when tested on 2026
 | `/injuries` | League-wide injury report, including teams not playing today |
 | `/news` | League news articles (the same feed stored in `gameExtras/news`) |
 
-League standings are at `https://site.api.espn.com/apis/v2/sports/basketball/nba/standings` (note `v2` without `site`).
+League standings (`/apis/v2/sports/basketball/nba/standings`) are now stored. See [Standings](#standings-standings).
 
 ### Player API: `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/{athleteId}`
 
