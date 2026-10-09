@@ -14,7 +14,7 @@ The server uses three ESPN endpoints. The first two are under `https://site.api.
 | --- | --- | --- | --- |
 | `/scoreboard?dates=YYYYMMDD` | One ET date's games | Each poll: yesterday and today. Startup: the 5 days before and after today | `gameHeaders/{eventId}`, one per game |
 | `/summary?event={eventId}` | One game | Each poll, for games that are live or final and still settling | `gameBoxScores/{eventId}`, `gameRosters/{eventId}`, `gamePlays/{eventId}` and `gameExtras/{eventId}` |
-| `/standings?seasontype=2` | Both conferences' regular-season standings | At startup, 3 minutes after a game goes final, and at least hourly | `standings`, trimmed |
+| `/standings?seasontype=2`, with and without `level=3` | Both conferences' regular-season standings, and their divisions | At startup, 3 minutes after a game goes final, and at least hourly | `standings`, trimmed |
 
 Scheduled (`pre`), postponed and canceled games only get a header. Live games get all five paths refreshed every 12–14 seconds. Final games keep refreshing until ESPN stops correcting them (see [Settling after the final buzzer](architecture.md#settling-after-the-final-buzzer)).
 
@@ -267,17 +267,21 @@ Things to know:
 
 ## Standings: `standings`
 
-`GET https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?seasontype=2` returns `children[]`, one per conference (`abbreviation` `"East"` or `"West"`), each with `standings.entries[]` of 15 teams. Each entry has `team` (id, names, logos, links) and about 22 `stats`, each an object with `name`, `type`, `abbreviation`, `value` and `displayValue`. Records such as home and road have a `summary` (`"12-5"`) instead of a `value`. `?level=3` nests the divisions under the conferences.
+`GET https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?seasontype=2` returns `children[]`, one per conference (`abbreviation` `"East"` or `"West"`), each with `standings.entries[]` of 15 teams. Each entry has `team` (id, names, logos, links) and about 22 `stats`, each an object with `name`, `type`, `abbreviation`, `value` and `displayValue`. Records such as home and road have a `summary` (`"12-5"`) instead of a `value`. With `?level=3`, each conference has `children[]` of three divisions instead (`name` `"Atlantic"`), each with its own `standings.entries[]`. The stats are the same as in the conference response, with one difference: `gamesbehind` is games behind the division leader, not the conference leader.
 
 Without `seasontype`, it returns the current season type, which in October is the preseason (`seasonType: 1`, with preseason records). The server always asks for the regular season. Until the first regular-season games, every team is 0-0 with `playoffSeed` 0, and the entries are in alphabetical order, not by seed.
 
-The response is about 164 KB, so `standings.js` trims it to about 5.5 KB:
+The server fetches both, in parallel. Each response is about 164 KB, so `standings.js` trims them to about 6.5 KB together:
 
 ```
 standings = {
   season: "2026-27", seasonType: 2, updatedAt: <ms>,
   east: [ { teamId, abbr, name, seed, wins, losses, pct, gb, streak, home, road, conf, div, l10, diff }, ... 15 ],
-  west: [ ... 15 ]
+  west: [ ... 15 ],
+  divisions: {
+    east: [ { name: "Atlantic", teams: [ { teamId, gb }, ... 5 ] }, ... 3 ],
+    west: [ ... 3 ]
+  }
 }
 ```
 
@@ -290,7 +294,11 @@ standings = {
 | `home`, `road`, `conf`, `div`, `l10` | `home`, `road`, `vsconf`, `vsdiv`, `lasttengames` display values | `"7-2"` |
 | `diff` | `differential`: average point differential per game | `-4.5` |
 
-Stats are looked up by `type` rather than by position or `name` (`"vs. Div."`). Each conference is ordered by seed, then by name for teams without one. `updatedAt` is when the server last wrote a change.
+Stats are looked up by `type` rather than by position or `name` (`"vs. Div."`). Each conference is ordered by seed, then by name for teams without one.
+
+A division stores only each team's id and its games behind the division leader (`gb`, `"-"` for the leader), because the rest of the row is the same as the team's conference row. Divisions are ordered by name, and each division's teams by games behind, then by seed. `divisions` is `null` if the `level=3` response has none.
+
+`updatedAt` is when the server last wrote a change.
 
 The server refreshes the standings on its first poll, 3 minutes after it first sees a game as final, and at least every hour. It writes only when the trimmed standings changed, and retries a failed refresh 5 minutes later.
 

@@ -1,6 +1,7 @@
-// League standings, from ESPN's standings endpoint (see espn-data.md). The response is about
-// 164 KB, mostly team metadata and a verbose object per stat, so it's trimmed to what the
-// standings screen shows, about 5 KB, and written to `standings`.
+// League standings, from ESPN's standings endpoint (see espn-data.md). The server fetches it
+// twice, by conference and by division (`level=3`). Each response is about 164 KB, mostly team
+// metadata and a verbose object per stat, so they're trimmed to what the standings screen
+// shows, about 6.5 KB together, and written to `standings`.
 
 // Wait this long after a game goes final before refreshing, so ESPN has counted it.
 const AFTER_FINAL_MS = 3 * 60 * 1000;
@@ -45,16 +46,49 @@ function trimEntry(entry) {
     };
 }
 
-// Turns the standings response into { season, seasonType, east: [...], west: [...] }, each
-// conference ordered by seed, or by name for teams without one. Returns null if neither
-// conference is there.
-function trimStandings(data) {
+// The conference children of a response, as [key, child] pairs.
+function conferencesOf(data) {
+    return (Array.isArray(data?.children) ? data.children : [])
+        .map((child) => [CONFERENCES[String(child?.abbreviation ?? '').toLowerCase()], child])
+        .filter(([key]) => key);
+}
+
+// "-" (the leader) or a number of games, for sorting.
+const gamesBehind = (gb) => (gb === '-' || gb == null ? 0 : Number(gb) || 0);
+
+// Turns the by-division response into { east: [ { name, teams: [ { teamId, gb } ] } ], west },
+// each conference's divisions by name and each division's teams by games behind its leader,
+// then by seed. Everything else about a team is the same as in the conference rows, so only
+// the division's games behind is kept. Returns null if there are no divisions.
+function trimDivisions(data) {
+    const trimmed = {};
+    let found = false;
+    for (const [key, conference] of conferencesOf(data)) {
+        const divisions = [];
+        for (const division of Array.isArray(conference.children) ? conference.children : []) {
+            const entries = division?.standings?.entries;
+            if (!division?.name || !Array.isArray(entries)) continue;
+            const teams = entries.map(trimEntry).filter(Boolean)
+                .sort((a, b) => gamesBehind(a.gb) - gamesBehind(b.gb) || (a.seed ?? Infinity) - (b.seed ?? Infinity) || (a.name ?? '').localeCompare(b.name ?? ''))
+                .map(({ teamId, gb }) => ({ teamId, gb }));
+            divisions.push({ name: division.name, teams });
+        }
+        if (divisions.length === 0) continue;
+        found = true;
+        trimmed[key] = divisions.sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return found ? trimmed : null;
+}
+
+// Turns the by-conference response into { season, seasonType, east: [...], west: [...] }, each
+// conference ordered by seed, or by name for teams without one, plus `divisions` from the
+// by-division response if it has them. Returns null if neither conference is there.
+function trimStandings(data, divisionData) {
     const trimmed = { season: null, seasonType: null };
     let found = false;
-    for (const child of Array.isArray(data?.children) ? data.children : []) {
-        const key = CONFERENCES[String(child?.abbreviation ?? '').toLowerCase()];
-        const standings = child?.standings;
-        if (!key || !Array.isArray(standings?.entries)) continue;
+    for (const [key, child] of conferencesOf(data)) {
+        const standings = child.standings;
+        if (!Array.isArray(standings?.entries)) continue;
         found = true;
         trimmed.season ??= standings.seasonDisplayName ?? data.season?.displayName ?? null;
         trimmed.seasonType ??= Number.isFinite(standings.seasonType) ? standings.seasonType : null;
@@ -63,11 +97,14 @@ function trimStandings(data) {
             .filter(Boolean)
             .sort((a, b) => (a.seed ?? Infinity) - (b.seed ?? Infinity) || (a.name ?? '').localeCompare(b.name ?? ''));
     }
-    return found ? trimmed : null;
+    if (!found) return null;
+    trimmed.divisions = trimDivisions(divisionData);
+    return trimmed;
 }
 
 // Decides when to refresh the standings, and writes them only when they changed.
-// `fetch` returns ESPN's response body, and `write` stores the trimmed value.
+// `fetch` returns ESPN's response bodies as { conferences, divisions }, and `write` stores
+// the trimmed value.
 class StandingsRefresher {
     constructor({ fetch, write, now = Date.now }) {
         this.fetch = fetch;
@@ -93,7 +130,8 @@ class StandingsRefresher {
     async refreshIfDue() {
         if (this.now() < this.dueAt) return false;
         try {
-            const standings = trimStandings(await this.fetch());
+            const { conferences, divisions } = await this.fetch();
+            const standings = trimStandings(conferences, divisions);
             if (!standings) throw new Error('No conferences in standings response');
             this.dueAt = this.now() + FALLBACK_MS;
             const json = JSON.stringify(standings);
@@ -108,4 +146,4 @@ class StandingsRefresher {
     }
 }
 
-module.exports = { trimStandings, StandingsRefresher, AFTER_FINAL_MS, FALLBACK_MS, RETRY_MS };
+module.exports = { trimStandings, trimDivisions, StandingsRefresher, AFTER_FINAL_MS, FALLBACK_MS, RETRY_MS };

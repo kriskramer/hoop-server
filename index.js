@@ -40,7 +40,13 @@ const endTimes = new Map();
 const reactionCounters = new Map();
 // Keeps `standings` current: shortly after each final, and hourly otherwise.
 const standings = new StandingsRefresher({
-    fetch: async () => (await espn.getStandings()).data,
+    fetch: async () => {
+        const [conferences, divisions] = await Promise.all([
+            espn.getStandings(),
+            espn.getStandings({ byDivision: true }),
+        ]);
+        return { conferences: conferences.data, divisions: divisions.data };
+    },
     write: (value) => db().writeStandings(value),
 });
 // Logs live games whose play-by-play falls behind the scoreboard.

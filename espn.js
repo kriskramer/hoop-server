@@ -15,7 +15,9 @@ module.exports = {
     getScoreboard: (date) => http.get('/scoreboard', { params: { dates: date.replace(/-/g, '') } }),
     // Box score, play-by-play, win probability, leaders, and game info for one event.
     getSummary: (eventId) => http.get('/summary', { params: { event: eventId } }),
-    // East and West conference standings. Without `seasontype`, ESPN returns the current
-    // season type, which in October is the preseason.
-    getStandings: () => http.get(STANDINGS_URL, { params: { seasontype: REGULAR_SEASON } }),
+    // East and West conference standings, or with `byDivision`, each conference's three
+    // divisions. Without `seasontype`, ESPN returns the current season type, which in October
+    // is the preseason.
+    getStandings: ({ byDivision = false } = {}) =>
+        http.get(STANDINGS_URL, { params: { seasontype: REGULAR_SEASON, ...(byDivision && { level: 3 }) } }),
 };

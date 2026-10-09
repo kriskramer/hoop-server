@@ -1,8 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { trimStandings, StandingsRefresher, AFTER_FINAL_MS, FALLBACK_MS, RETRY_MS } = require('../standings');
+const { trimStandings, trimDivisions, StandingsRefresher, AFTER_FINAL_MS, FALLBACK_MS, RETRY_MS } = require('../standings');
 // Captured on 2026-10-09 (preseason), cut to 3 teams per conference.
 const fixture = require('./fixtures/standings.json');
+// The same day's `level=3` response, cut to 3 teams per division and the stats standings.js reads.
+const divisionFixture = require('./fixtures/standings-divisions.json');
 
 test('trims each conference to the fields clients show, ordered by seed', () => {
     const standings = trimStandings(fixture);
@@ -56,6 +58,39 @@ test('stores no seed before the season starts, and orders those teams by name', 
     assert.deepStrictEqual(standings.west.map(t => [t.teamId, t.seed]), [['7', null], ['9', null]]);
 });
 
+test('trims each division to its teams and games behind the division leader', () => {
+    const divisions = trimDivisions(divisionFixture);
+    assert.deepStrictEqual(divisions.east.map(d => d.name), ['Atlantic', 'Central', 'Southeast']);
+    assert.deepStrictEqual(divisions.west.map(d => d.name), ['Northwest', 'Pacific', 'Southwest']);
+    // ESPN lists the Atlantic as NY, TOR, PHI; it's stored leader first.
+    assert.deepStrictEqual(divisions.east[0].teams, [
+        { teamId: '20', gb: '1' },
+        { teamId: '28', gb: '1.5' },
+        { teamId: '18', gb: '2' },
+    ]);
+});
+
+test('orders a division by games behind, then by seed', () => {
+    const team = (id, gb, seed) => ({
+        team: { id, displayName: id },
+        stats: [{ type: 'gamesbehind', displayValue: gb }, { type: 'playoffseed', value: seed }],
+    });
+    const divisions = trimDivisions({
+        children: [{
+            abbreviation: 'East',
+            children: [{ name: 'Central', standings: { entries: [team('a', '2', 9), team('b', '-', 4), team('c', '-', 3)] } }],
+        }],
+    });
+    assert.deepStrictEqual(divisions.east[0].teams.map(t => t.teamId), ['c', 'b', 'a']);
+    assert.strictEqual(divisions.west, undefined);
+});
+
+test('adds the divisions to the standings when there are any', () => {
+    assert.strictEqual(trimStandings(fixture, divisionFixture).divisions.east.length, 3);
+    assert.strictEqual(trimStandings(fixture).divisions, null);
+    assert.strictEqual(trimDivisions({ children: [{ abbreviation: 'East', children: [] }] }), null);
+});
+
 test('returns null when the response has no conferences', () => {
     assert.strictEqual(trimStandings({}), null);
     assert.strictEqual(trimStandings({ children: [{ abbreviation: 'AT', standings: {} }] }), null);
@@ -68,7 +103,7 @@ function refresher(responses) {
         fetch: async () => {
             const next = responses.shift();
             if (next instanceof Error) throw next;
-            return next;
+            return { conferences: next, divisions: divisionFixture };
         },
         write: async (value) => writes.push(value),
         now: () => now,
