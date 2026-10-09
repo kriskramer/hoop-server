@@ -3,12 +3,8 @@
 // about 1 MB per team, almost all of it the schedule's repeated team metadata, so they're
 // trimmed to what the team page shows, about 10 KB, and written to `teams/{teamId}`.
 
-// Wait this long after a game goes final before refreshing its two teams, so ESPN has counted it.
-const AFTER_FINAL_MS = 3 * 60 * 1000;
-// Refresh every team at least this often, for roster moves and injuries.
-const FALLBACK_MS = 24 * 60 * 60 * 1000;
-// Retry a team this soon after a failed refresh.
-const RETRY_MS = 5 * 60 * 1000;
+// Teams are refreshed daily (for roster moves and injuries) and shortly after each final.
+const { KeyedRefresher, AFTER_FINAL_MS, FALLBACK_MS, RETRY_MS } = require('./refresher');
 
 // Team stats kept, as stored key -> ESPN stat `name`. Per-game averages and percentages only.
 const STATS = {
@@ -189,23 +185,16 @@ function trimTeam(teamId, { roster, schedule, stats, leaders }) {
     };
 }
 
-// Decides when to refresh each team, and writes a team only when it changed. `listTeams`
-// returns ESPN's team ids, `fetch(teamId)` returns the trimmed value (or throws), and
-// `write(teamId, value)` stores it.
-class TeamRefresher {
-    constructor({ listTeams, fetch, write, now = Date.now }) {
+// Refreshes every team daily, and a final game's two teams shortly after it. `listTeams`
+// returns ESPN's team ids, `fetch(teamId)` the trimmed value (or null or throws), and
+// `write(teamId, value)` stores it. A team is written only when it changed.
+class TeamRefresher extends KeyedRefresher {
+    constructor({ listTeams, ...options }) {
+        super(options);
         this.listTeams = listTeams;
-        this.fetch = fetch;
-        this.write = write;
-        this.now = now;
-        // teamId -> when it's next due. Every team is due on the first refresh.
-        this.dueAt = new Map();
         this.finals = new Set();
-        // teamId -> JSON of the value last written.
-        this.written = new Map();
         this.listed = false;
         this.listRetryAt = 0;
-        this.running = false;
     }
 
     // Called after each poll with the final games it saw, as { id, teamIds }. A game seen
@@ -214,60 +203,22 @@ class TeamRefresher {
         for (const { id, teamIds } of games) {
             if (this.finals.has(id)) continue;
             this.finals.add(id);
-            for (const teamId of teamIds) {
-                const due = this.now() + AFTER_FINAL_MS;
-                this.dueAt.set(teamId, Math.min(this.dueAt.get(teamId) ?? due, due));
-            }
+            for (const teamId of teamIds) this.dueAfterFinal(teamId);
         }
     }
 
-    // Refreshes every team that's due, one at a time so ESPN isn't hit with 120 requests at
-    // once. Returns the ids of the teams written. One team's failure doesn't stop the others:
-    // it's logged through `onError` and retried later. Calls while a refresh is running return
-    // an empty list straight away.
-    async refreshDue({ onError = () => {} } = {}) {
-        if (this.running) return [];
-        this.running = true;
-        try {
-            await this.ensureListed(onError);
-            const written = [];
-            for (const [teamId, dueAt] of this.dueAt) {
-                if (this.now() < dueAt) continue;
-                try {
-                    if (await this.refreshTeam(teamId)) written.push(teamId);
-                } catch (err) {
-                    this.dueAt.set(teamId, this.now() + RETRY_MS);
-                    onError(teamId, err);
-                }
-            }
-            return written;
-        } finally {
-            this.running = false;
-        }
-    }
-
-    async ensureListed(onError) {
+    // Lists the teams once, retrying a failure later. `onError` gets a null key for it.
+    async beforeRefresh(onError) {
         if (this.listed || this.now() < this.listRetryAt) return;
         try {
             const ids = await this.listTeams();
             if (ids.length === 0) throw new Error('No teams in teams response');
-            for (const id of ids) if (!this.dueAt.has(id)) this.dueAt.set(id, 0);
+            for (const id of ids) this.track(id);
             this.listed = true;
         } catch (err) {
             this.listRetryAt = this.now() + RETRY_MS;
             onError(null, err);
         }
-    }
-
-    async refreshTeam(teamId) {
-        const team = await this.fetch(teamId);
-        if (!team) throw new Error('No roster or schedule in team responses');
-        this.dueAt.set(teamId, this.now() + FALLBACK_MS);
-        const json = JSON.stringify(team);
-        if (json === this.written.get(teamId)) return false;
-        await this.write(teamId, { ...team, updatedAt: this.now() });
-        this.written.set(teamId, json);
-        return true;
     }
 }
 

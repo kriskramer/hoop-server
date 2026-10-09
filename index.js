@@ -6,10 +6,11 @@ const { writeChanges } = require('./diff');
 const { ReactionCounter } = require('./reactions');
 const { toFirebaseSafe } = require('./sanitize');
 const { feedLag, LagMonitor } = require('./lag');
-const { trimVideos } = require('./videos');
+const { buildExtras, pregameRefreshDue } = require('./extras');
 const { buildRoster } = require('./roster');
 const { StandingsRefresher } = require('./standings');
 const { trimTeam, TeamRefresher } = require('./teams');
+const { trimPlayer, PlayerRefresher } = require('./players');
 
 const BACKFILL_DAYS = 5;
 
@@ -34,6 +35,8 @@ const writtenBoxScores = new Map();
 const writtenRosters = new Map();
 // eventId -> JSON of the extras last written, to skip unchanged writes.
 const writtenExtras = new Map();
+// eventId -> when a scheduled game's summary was last fetched for its extras (ms).
+const pregameFetches = new Map();
 // eventId -> when a final game ended (ms), written into its header as `endedAt`. Kept here
 // because each header write replaces or diffs the whole header, which would otherwise drop it.
 const endTimes = new Map();
@@ -70,14 +73,37 @@ const teams = new TeamRefresher({
         const leaders = Number.isFinite(seasonYear)
             ? await espn.getTeamLeaders(teamId, seasonYear).catch(() => null)
             : null;
-        return trimTeam(teamId, {
+        const team = trimTeam(teamId, {
             roster: roster.data,
             schedule: schedule.data,
             stats: stats?.data ?? null,
             leaders: leaders?.data ?? null,
         });
+        // The rosters say which players have pages.
+        if (team) players.setRoster(teamId, team.roster.map(p => p.id));
+        return team;
     },
     write: (teamId, value) => db().writeTeam(teamId, value),
+});
+// Keeps `players/{athleteId}` current for every rostered player: a game's two rosters
+// shortly after it goes final, and every player daily otherwise.
+const players = new PlayerRefresher({
+    fetch: async (athleteId) => {
+        const [bio, gameLog, splits, stats] = await Promise.all([
+            espn.getAthlete(athleteId),
+            // The page still works without these, so their failures don't fail the player.
+            espn.getAthleteGameLog(athleteId).catch(() => null),
+            espn.getAthleteSplits(athleteId).catch(() => null),
+            espn.getAthleteStats(athleteId).catch(() => null),
+        ]);
+        return trimPlayer({
+            bio: bio.data,
+            gameLog: gameLog?.data ?? null,
+            splits: splits?.data ?? null,
+            stats: stats?.data ?? null,
+        });
+    },
+    write: (athleteId, value) => db().writePlayer(athleteId, value),
 });
 // Logs live games whose play-by-play falls behind the scoreboard.
 const lagMonitor = new LagMonitor();
@@ -109,8 +135,13 @@ async function processGame(event) {
     }
 
     if (state === 'other') {
+        // Scheduled games get the injury report and betting line before tip-off.
+        if (event.status?.type?.state === 'pre') {
+            await savePregameExtras(event);
+        }
         return;
     }
+    pregameFetches.delete(event.id);
 
     // Games found by the startup backfill have long settled, so their totals are left alone.
     if (Date.now() - Date.parse(event.date) < SETTLED_AFTER_START_MS) {
@@ -230,18 +261,11 @@ async function saveDetails(event, live) {
     return boxChanged || playsChanged;
 }
 
-// Injuries, odds, news, and highlight clips. Kept apart from the box score so clients listening to
-// live stats don't re-download them on every update. Not counted as a change for settling,
-// because league news keeps changing long after a game ends.
+// The injury report, betting line, news, and highlight clips. Kept apart from the box score so
+// clients listening to live stats don't re-download them on every update. Not counted as a
+// change for settling, because league news keeps changing long after a game ends.
 async function saveExtras(eventId, data) {
-    const extras = {
-        injuries: data.injuries ?? null,
-        pickcenter: data.pickcenter ?? null,
-        odds: data.odds ?? null,
-        againstTheSpread: data.againstTheSpread ?? null,
-        news: data.news ?? null,
-        videos: trimVideos(data.videos),
-    };
+    const extras = buildExtras(data);
     const json = JSON.stringify(extras);
     if (writtenExtras.get(eventId) === json) {
         return;
@@ -249,6 +273,17 @@ async function saveExtras(eventId, data) {
     await db().writeGameExtras(eventId, extras);
     writtenExtras.set(eventId, json);
     console.log(`Updating game extras -- ${eventId}`);
+}
+
+// Fetches a scheduled game's summary for its extras, hourly or every 10 minutes in the two
+// hours before tip-off. The box score and plays are empty until then, so only extras are saved.
+async function savePregameExtras(event) {
+    const now = Date.now();
+    if (!pregameRefreshDue(Date.parse(event.date), pregameFetches.get(event.id), now)) return;
+    const { data } = await espn.getSummary(event.id);
+    await saveExtras(event.id, data);
+    // Only recorded after a successful write, so a failure is retried on the next poll.
+    pregameFetches.set(event.id, now);
 }
 
 async function savePlays(eventId, nodes) {
@@ -342,6 +377,7 @@ async function pollLoop() {
         delayMs = decision.delayMs;
         await refreshStandings(events);
         refreshTeams(events);
+        refreshPlayers(events);
     } catch (err) {
         console.error('Poll failed:', err);
     } finally {
@@ -374,6 +410,21 @@ function refreshTeams(events) {
     }).then((written) => {
         if (written.length > 0) console.log(`Updating teams -- ${written.join(', ')}`);
     }).catch(err => console.error('Failed to refresh teams:', err.message));
+}
+
+// Refreshes the players that are due in the background, like the teams: a full refresh is
+// about 2,000 requests. Players are found from the team rosters, so the first refresh starts
+// as the teams come in.
+function refreshPlayers(events) {
+    players.noteFinals(events.filter(e => gameState(e) === 'final').map(e => ({
+        id: e.id,
+        teamIds: (e.competitions?.[0]?.competitors ?? []).map(c => c?.id).filter(id => id != null).map(String),
+    })));
+    players.refreshDue({
+        onError: (athleteId, err) => console.error(`Failed to refresh player ${athleteId}:`, err.message),
+    }).then((written) => {
+        if (written.length > 0) console.log(`Updating players -- ${written.length} (${written.slice(0, 5).join(', ')}${written.length > 5 ? ', ...' : ''})`);
+    }).catch(err => console.error('Failed to refresh players:', err.message));
 }
 
 function main() {

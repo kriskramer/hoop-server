@@ -21,6 +21,8 @@ module.exports = {
     writeStandings: (standings) => write('standings', standings),
     // One team's roster, schedule and stats, trimmed by teams.js.
     writeTeam: (teamId, team) => write(`teams/${teamId}`, team),
+    // One player's bio, game log, splits and career, trimmed by players.js.
+    writePlayer: (athleteId, player) => write(`players/${athleteId}`, player),
     writeGameExtras: (eventId, extras) => write(`gameExtras/${eventId}`, extras),
     // Replaces every play for a game; used for the first write after startup.
     replacePlays: (eventId, playsByKey) => write(`gamePlays/${eventId}`, playsByKey),

@@ -9,6 +9,8 @@ const http = axios.create({ baseURL: BASE_URL, timeout: 10000 });
 const STANDINGS_URL = 'https://site.api.espn.com/apis/v2/sports/basketball/nba/standings';
 // Player leaders are only in the core API, which links resources with `$ref` URLs.
 const CORE_URL = 'https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba';
+// Player pages come from the common v3 API on another host.
+const ATHLETE_URL = 'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes';
 // ESPN's season types: 1 preseason, 2 regular season, 3 playoffs.
 const REGULAR_SEASON = 2;
 
@@ -34,4 +36,13 @@ module.exports = {
     // A team's player leaders for a regular season, by its end year (2026 for 2025-26).
     getTeamLeaders: (teamId, seasonYear) =>
         http.get(`${CORE_URL}/seasons/${seasonYear}/types/${REGULAR_SEASON}/teams/${teamId}/leaders`),
+    // A player's bio, current team, injuries, and season averages with league ranks.
+    getAthlete: (athleteId) => http.get(`${ATHLETE_URL}/${athleteId}`),
+    // A player's games in the latest season with any (until the regular season starts,
+    // last season's): regular season, playoffs and preseason. About 0.8 MB, 26 KB gzipped.
+    getAthleteGameLog: (athleteId) => http.get(`${ATHLETE_URL}/${athleteId}/gamelog`),
+    // A player's averages that season, split by home/road, result, month, opponent, ...
+    getAthleteSplits: (athleteId) => http.get(`${ATHLETE_URL}/${athleteId}/splits`),
+    // A player's regular-season averages for every season of their career.
+    getAthleteStats: (athleteId) => http.get(`${ATHLETE_URL}/${athleteId}/stats`),
 };

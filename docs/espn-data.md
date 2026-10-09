@@ -13,12 +13,13 @@ The server uses these ESPN endpoints. Most are under `https://site.api.espn.com/
 | Endpoint | Called for | When | Stored at |
 | --- | --- | --- | --- |
 | `/scoreboard?dates=YYYYMMDD` | One ET date's games | Each poll: yesterday and today. Startup: the 5 days before and after today | `gameHeaders/{eventId}`, one per game |
-| `/summary?event={eventId}` | One game | Each poll, for games that are live or final and still settling | `gameBoxScores/{eventId}`, `gameRosters/{eventId}`, `gamePlays/{eventId}` and `gameExtras/{eventId}` |
+| `/summary?event={eventId}` | One game | Each poll, for games that are live or final and still settling. Scheduled games hourly, and every 10 minutes in the two hours before tip-off | `gameBoxScores/{eventId}`, `gameRosters/{eventId}`, `gamePlays/{eventId}` and `gameExtras/{eventId}`. Scheduled games only `gameExtras/{eventId}` |
 | `/standings?seasontype=2`, with and without `level=3` | Both conferences' regular-season standings, and their divisions | At startup, 3 minutes after a game goes final, and at least hourly | `standings`, trimmed |
 | `/teams` | The 30 team ids | Once, at startup (retried on failure) | Not stored |
 | `/teams/{id}/roster`, `/teams/{id}/schedule?seasontype=2`, `/teams/{id}/statistics?seasontype=2`, and the core API's `/seasons/{year}/types/2/teams/{id}/leaders` | One team's players, games, season stats and leaders | Every team at startup and daily, and a game's two teams 3 minutes after it goes final | `teams/{teamId}`, trimmed |
+| The athlete API's `/athletes/{id}`, `/gamelog`, `/splits` and `/stats` | One player's bio, season games, splits and career | Every rostered player at startup and daily, and a final game's two rosters 3 minutes after it goes final | `players/{athleteId}`, trimmed |
 
-Scheduled (`pre`), postponed and canceled games only get a header. Live games get all five paths refreshed every 12–14 seconds. Final games keep refreshing until ESPN stops correcting them (see [Settling after the final buzzer](architecture.md#settling-after-the-final-buzzer)).
+Scheduled (`pre`) games get a header and extras, and postponed and canceled games only a header. Live games get all five paths refreshed every 12–14 seconds. Final games keep refreshing until ESPN stops correcting them (see [Settling after the final buzzer](architecture.md#settling-after-the-final-buzzer)).
 
 Every game path is keyed by **ESPN event id** (for example `401811026`). The same id appears in the header, the box score, the plays, and the extras, so clients join on it.
 
@@ -33,12 +34,13 @@ gameBoxScores/{eventId}
 gameRosters/{eventId}/{athleteId}      name, short name, jersey, team and starter, from the box score
 gamePlays/{eventId}/{playKey}          one node per play, with order and winProbability
 gameExtras/{eventId}
-    injuries                           both teams' injury reports
-    pickcenter, odds, againstTheSpread betting lines and ATS records
+    injuryReport                       both teams' injured players, trimmed (see below)
+    lines                              the sportsbook line, trimmed (see below)
     news                               league news articles
     videos                             highlight clips, trimmed (see below)
 standings                              East and West standings, trimmed (see below)
 teams/{teamId}                         one team's roster, schedule, stats and leaders, trimmed (see below)
+players/{athleteId}                    one player's bio, game log, splits and career, trimmed (see below)
 ```
 
 Two things apply to every stored value:
@@ -244,27 +246,27 @@ Free throws, jump balls, timeouts and other plays without a location use the sen
 
 ## Injuries, odds, news, and highlights: `gameExtras`
 
-The server writes these parts of the summary from the same summary request as the box score. All but `videos` are stored unchanged:
+The server builds these from the same summary request as the box score, in `extras.js`. The injury report, line and clips are trimmed, and `news` is stored unchanged:
 
 ```js
-{ injuries, pickcenter, odds, againstTheSpread, news, videos }
+{ injuryReport, lines, news, videos }
 ```
 
-They're kept out of `gameBoxScores` so clients listening to live stats don't re-download about 35 KB of news and injuries on every box score change. The node is rewritten whole, and only when something in it changed. Changes here don't count toward [settling](architecture.md#settling-after-the-final-buzzer), because league news keeps changing long after a game ends.
+They're kept out of `gameBoxScores` so clients listening to live stats don't re-download them on every box score change. The node is rewritten whole, and only when something in it changed. Changes here don't count toward [settling](architecture.md#settling-after-the-final-buzzer), because league news keeps changing long after a game ends.
 
 | Key | Contents |
 | --- | --- |
-| `injuries[]` | One entry per team: `{ team, injuries: [ { status: "Day-To-Day", date, athlete, type, details } ] }` |
-| `pickcenter[]` | One entry per betting provider: `details` (`"CHA -6.5"`), `spread`, `overUnder`, `overOdds`, `underOdds`, and `homeTeamOdds`/`awayTeamOdds` with `moneyLine`, `spreadOdds` and `favorite` |
-| `odds` | Usually empty; `pickcenter` has the lines |
-| `againstTheSpread[]` | Each team's record against the spread this season |
+| `injuryReport[]` | From the summary's `injuries`, one entry per team with injured players: `{ teamId, abbr, players: [ { id, name, short, pos, jersey, status, tag, part, detail, side, returnDate, updated } ] }`. `status` is `"Out"` or `"Day-To-Day"`. `tag` is ESPN's fantasy label: `OUT`, `OFS` (out for the season) or `GTD`. `part` is the body part or reason (`"Knee"`, `"Rest"`), and ESPN's `"Not Specified"` is stored as no value. About 1–2 KB, against 8–12 KB untrimmed |
+| `lines` | From the summary's `pickcenter`, the highest-priority sportsbook (DraftKings so far): `{ provider, details, spread, overUnder, overOdds, underOdds, home, away, open }`. `details` is ESPN's text (`"IND -2.5"`). `spread` is the home team's line, so it's positive when the away team is favored. `home` and `away` are `{ teamId, moneyLine, spreadOdds, favorite }`. `open` is `{ spread, overUnder, homeMoneyLine, awayMoneyLine }`, the opening line, parsed from ESPN's display strings (`"+114"`, `"o232.5"`). Missing when no sportsbook has a line |
 | `news` | `{ header, link, articles: [ ... ] }`. League-wide, not specific to this game |
 | `videos[]` | ESPN highlight clips, oldest first, trimmed by `videos.js` to `{ id, headline, duration, publishedAt, thumbnail, url }`. `url` is the clip's espn.com page. In-game clips appear a few minutes after the play; the recap appears shortly after the final buzzer. The stream and MP4 links, and the per-country restrictions (Canada isn't on the list), aren't stored, because the app links out to espn.com instead of playing ESPN's files |
 
 Things to know:
 
-- **Captured only once a game starts.** The summary is fetched for live and final games only, so a scheduled game has no `gameExtras` node yet. The injury report and lines are written from tip-off onward.
-- **`pickcenter` is empty until close to the game.** It was empty for preseason games and for regular games two days out. When present during or after a game, it shows the line ESPN currently has, which may be the closing line.
+- **Scheduled games get extras too.** The summary of a `pre` game has the injury report and line (and empty box score and plays), so the server fetches it hourly, and every 10 minutes in the two hours before tip-off (`pregameRefreshDue`). That covers today's games, which are polled. Games up to 5 days ahead are fetched once by the startup backfill. Postponed and canceled games aren't fetched.
+- **When the line appears.** On 2026-10-09, `pickcenter` had a DraftKings line for preseason games the next day and for opening-night games 12 days out, though not for every game on the schedule. Earlier in the preseason it was empty for games two days out. During and after a game, it shows the line ESPN has then, which is the closing line, with the opening line under `pointSpread`, `moneyline` and `total`.
+- **The scoreboard has the line too.** A scheduled game's header has the same DraftKings line at `competitions[0].odds[0]`, untrimmed. ESPN drops it from the scoreboard once the game is over, so clients use the header's only before `lines` is stored.
+- **Not stored:** the summary's `odds` (always empty so far), `againstTheSpread` (each team's ATS record, with empty `records` in the preseason), and the sportsbook links in `pickcenter`. Games stored before 2026-10-09 have the untrimmed `injuries`, `pickcenter`, `odds` and `againstTheSpread` instead.
 - **`news` repeats across games.** Every game played the same day stores the same news.
 - **The summary's `standings` isn't stored.** It covers only the game's conferences and repeats across games. The full standings are in [`standings`](#standings-standings) instead. Until 2026-10-09 it was stored here, so older games' extras still have it.
 
@@ -334,6 +336,41 @@ teams/{teamId} = {
 
 The server lists the teams once, then refreshes every team at startup and every 24 hours, one team at a time, in the background so polling doesn't wait. A game's two teams are refreshed 3 minutes after it's first seen as final. A team is written only when its trimmed value changed, and a failed team is retried 5 minutes later. A failed statistics or leaders request doesn't fail the team: it's stored without them.
 
+## Player pages: `players/{athleteId}`
+
+Four requests per player, all on the athlete API (`https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/{athleteId}`). Checked on 2026-10-09:
+
+- **`/athletes/{id}`** (about 80 KB, mostly team metadata, the roster switcher and ticket links): `athlete` with `displayName`, `firstName`, `lastName`, `jersey`, `position`, `team`, `displayHeight`, `displayWeight`, `age`, `displayDOB` (**day/month/year**, "25/9/2001"), `displayBirthPlace`, `displayDraft` ("2021: Rd 1, Pk 1 (DET)"), `displayExperience` ("6th Season"), `college`, `active` and `status`, `injuries[]` (`status`, `details.type`, `details.returnDate`), and `statsSummary`: points, rebounds, assists and FG% with the league `rank`, for the latest season with games.
+- **`/gamelog`** (about 0.8 MB, 26 KB gzipped, because each game repeats both teams' metadata and links): `events` keyed by event id (`gameDate`, `atVs`, `homeTeamId`, `homeTeamScore`, `awayTeamScore`, `gameResult`, `opponent`, `team`, and `eventNote` such as "East Semifinals - Game 7"), and `seasonTypes[]` ("2025-26 Postseason", "2025-26 Regular Season", "2025-26 Preseason"), each with `categories[]` (by month or by playoff round) of `events[]` `{ eventId, stats }`. **The All-Star games are listed as regular-season games** (`eventNote` "NBA All-Star - ..."). The `season` filter says which season it is. Without `?season=`, it's the latest season with games, so before the regular season starts it's last season, as with the team statistics.
+- **`/splits`** (about 12 KB): `splitCategories[]` (`split` with "All Splits", Home, Road, vs. Division and so on; `byResult`; `byMonth`; `byDay`; `byOpponent`; `byPosition`), each split `{ displayName, stats }`.
+- **`/stats`** (about 18 KB): `categories[]` (`averages`, `totals`, `miscellaneous`), each with a row per season, `{ teamId, season: { displayName }, stats }`, and the career `totals`. **A season split between teams has a row per team and a combined row without `teamId`.**
+
+The column `names` differ between these responses (`/splits` has "Free Throws Made-Attempted Per Game"), but the `labels` (`GP`, `MIN`, `FG`, `FG%`, `3PT`, `OR`, `TO`, ...) are the same, so `players.js` reads stats by label. `FG`, `3PT` and `FT` are "made-attempted".
+
+`players.js` trims them to about 15–25 KB per player, most of it the game log:
+
+```
+players/{athleteId} = {
+  id, name, short, jersey, pos, teamId, ht, wt, age, born: "2001-09-25", birthplace, draft, exp, college,
+  status,                                   // only for inactive players: "Free Agent", ...
+  injury: { status, type, returns } | null,
+  ranks: { pts, reb, ast, fgPct },          // league ranks
+  season: "2025-26", updatedAt: <ms>,
+  averages: { gp, min, pts, reb, ast, stl, blk, tov, oreb, dreb, pf, fgm, fga, fgPct, tpm, tpa, tpPct, ftm, fta, ftPct },
+  log: [ { id, date, home, opp, teamId?, score, oppScore, win, post?, note?, min, pts, reb, ast, stl, blk, tov, pf, fgm, fga, tpm, tpa, ftm, fta }, ... ],
+  splits: { general: [ { name, ...averages } ], result, month },
+  career: [ { season, teamId?, gp, gs, ...averages }, ... ],
+  careerTotal: { ... }
+}
+```
+
+- **`log`** has the season's regular-season and playoff games (`post: true`) in date order. Preseason and All-Star games are left out. Rows have no percentages; clients work them out from makes and attempts. `teamId` is only there when it isn't the player's current team (after a trade). `id` is the event id, but `gameHeaders` only has the games the server has seen.
+- **`averages`** is the splits' "All Splits" row. `splits` keeps the general, by-result and by-month splits.
+- **`career`** is the regular season by season, oldest first, with a traded season's rows as ESPN gives them.
+- Only the bio is required. If the game log, splits or stats request fails, the player is stored without that part.
+
+The server refreshes every player on a team's roster at startup and every 24 hours, one at a time in the background. It gets the rosters from the team pages, so the first refresh starts as the teams come in. A final game's two rosters are refreshed 3 minutes after the server first sees the game as final. A player is written only when the trimmed value changed, and a failed refresh is retried 5 minutes later. A player who leaves every roster stops being refreshed, but their node stays. A full refresh is about 2,100 requests (about 25 MB gzipped) and takes a few minutes.
+
 ## Summary data we don't store
 
 The summary response also includes these. `saveDetails` in `index.js` drops them. Each one is a one-line addition there if a client needs it.
@@ -349,7 +386,7 @@ The summary response also includes these. `saveDetails` in `index.js` drops them
 
 ## Other ESPN endpoints
 
-The server doesn't call these, except the team endpoints marked as stored. They all returned data when tested on 2026-10-03, need no key, and are just as unofficial as the endpoints above.
+The server doesn't call these, except the team and player endpoints marked as stored. They all returned data when tested on 2026-10-03, need no key, and are just as unofficial as the endpoints above.
 
 ### Site API: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba`
 
@@ -369,9 +406,11 @@ League standings (`/apis/v2/sports/basketball/nba/standings`) are now stored. Se
 
 | Path | Contents |
 | --- | --- |
-| `/overview` | Season averages, recent games, next game, news |
-| `/gamelog` | Every game this season with the traditional box score line |
-| `/splits` | Season stats split by home/away, month, opponent, and so on |
+| (no path) | Bio, current team, injuries, and season averages with league ranks. Stored, see [Player pages](#player-pages-playersathleteid) |
+| `/overview` | Season averages, recent games, next game, news, awards, and a Rotowire note. Not stored |
+| `/gamelog` | Every game this season with the traditional box score line. Stored |
+| `/splits` | Season stats split by home/away, month, opponent, and so on. Stored |
+| `/stats` | Career averages and totals by season. Stored |
 
 ### Core API: `https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba`
 
