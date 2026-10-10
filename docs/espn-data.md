@@ -244,12 +244,12 @@ Free throws, jump balls, timeouts and other plays without a location use the sen
 
 `winProbability.homeWinPercentage` is a fraction from 0 to 1. The away team's chance is `1 - homeWinPercentage - tiePercentage`. In the sample game every play had an entry (506 plays, 506 entries).
 
-## Injuries, odds, news, and highlights: `gameExtras`
+## Injuries, odds, news, highlights, and the recap: `gameExtras`
 
-The server builds these from the same summary request as the box score, in `extras.js`. The injury report, line and clips are trimmed, and `news` is stored unchanged:
+The server builds these from the same summary request as the box score, in `extras.js`. The injury report, line, clips and recap are trimmed, and `news` is stored unchanged:
 
 ```js
-{ injuryReport, lines, news, videos }
+{ injuryReport, lines, news, videos, article }
 ```
 
 They're kept out of `gameBoxScores` so clients listening to live stats don't re-download them on every box score change. The node is rewritten whole, and only when something in it changed. Changes here don't count toward [settling](architecture.md#settling-after-the-final-buzzer), because league news keeps changing long after a game ends.
@@ -260,6 +260,7 @@ They're kept out of `gameBoxScores` so clients listening to live stats don't re-
 | `lines` | From the summary's `pickcenter`, the highest-priority sportsbook (DraftKings so far): `{ provider, details, spread, overUnder, overOdds, underOdds, home, away, open }`. `details` is ESPN's text (`"IND -2.5"`). `spread` is the home team's line, so it's positive when the away team is favored. `home` and `away` are `{ teamId, moneyLine, spreadOdds, favorite }`. `open` is `{ spread, overUnder, homeMoneyLine, awayMoneyLine }`, the opening line, parsed from ESPN's display strings (`"+114"`, `"o232.5"`). Missing when no sportsbook has a line |
 | `news` | `{ header, link, articles: [ ... ] }`. League-wide, not specific to this game |
 | `videos[]` | ESPN highlight clips, oldest first, trimmed by `videos.js` to `{ id, headline, duration, publishedAt, thumbnail, url }`. `url` is the clip's espn.com page. In-game clips appear a few minutes after the play; the recap appears shortly after the final buzzer. The stream and MP4 links, and the per-country restrictions (Canada isn't on the list), aren't stored, because the app links out to espn.com instead of playing ESPN's files |
+| `article` | From the summary's `article`, the AP game recap, trimmed by `article.js` to `{ id, type, headline, description, source, published, updated, url, story }`. `type` is `"Recap"` and `source` `"AP"` so far. `description` is the opening sentence, without its leading dash. `url` is the recap on espn.com, as https. `story` is the story's HTML parsed into `[ { kind, runs: [ { text, playerId, team } ] } ]`: `kind` is `"p"` for a paragraph or `"h"` for a heading ("Up next"). Player links keep the athlete id, team links the lowercase abbreviation in ESPN's address (`"det"`, `"gs"`), and other links (AP stories, posts on X) only their text. The "------" line and AP's sign-off after it are dropped, and the dateline's "-- —" becomes "—". About 2.5–5 KB, against 5–6 KB untrimmed. Missing until ESPN posts the recap |
 
 Things to know:
 
@@ -267,6 +268,7 @@ Things to know:
 - **When the line appears.** On 2026-10-09, `pickcenter` had a DraftKings line for preseason games the next day and for opening-night games 12 days out, though not for every game on the schedule. Earlier in the preseason it was empty for games two days out. During and after a game, it shows the line ESPN has then, which is the closing line, with the opening line under `pointSpread`, `moneyline` and `total`.
 - **The scoreboard has the line too.** A scheduled game's header has the same DraftKings line at `competitions[0].odds[0]`, untrimmed. ESPN drops it from the scoreboard once the game is over, so clients use the header's only before `lines` is stored.
 - **Not stored:** the summary's `odds` (always empty so far), `againstTheSpread` (each team's ATS record, with empty `records` in the preseason), and the sportsbook links in `pickcenter`. Games stored before 2026-10-09 have the untrimmed `injuries`, `pickcenter`, `odds` and `againstTheSpread` instead.
+- **When the recap appears.** In 11 regular-season and playoff games sampled on 2026-10-10, ESPN published the recap 11–32 minutes after the final in ten, and 8½ hours after it in one, and most were revised over the next hour, usually to add quotes. Preseason games had none. See [settling](architecture.md#settling-after-the-final-buzzer) for how the server keeps checking. The story's HTML has only `<a>` links, sometimes nested (an AP link around a player's), and `<hl2>` headings, with paragraphs separated by blank lines.
 - **`news` repeats across games.** Every game played the same day stores the same news.
 - **The summary's `standings` isn't stored.** It covers only the game's conferences and repeats across games. The full standings are in [`standings`](#standings-standings) instead. Until 2026-10-09 it was stored here, so older games' extras still have it.
 
@@ -380,7 +382,6 @@ The summary response also includes these. `saveDetails` in `index.js` drops them
 | `header` | Game status and per-period linescores, plus flags such as `shotChartAvailable`, `possessionArrowAvailable` and `timeoutsAvailable`. Mostly duplicates `gameHeaders` |
 | `seasonseries` | Head-to-head series this season, with the other meetings' event ids |
 | `broadcasts` | TV and radio |
-| `article` | Game recap article |
 | `winprobability` | Merged into each play rather than stored separately |
 | `format`, `meta`, `wallclockAvailable` | Metadata |
 

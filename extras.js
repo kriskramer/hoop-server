@@ -1,10 +1,11 @@
 // Builds `gameExtras/{eventId}` from a summary: the injury report, the betting line, league
-// news and highlight clips. The injury report and line are trimmed to what clients show,
+// news, highlight clips and the recap article. The injury report and line are trimmed to what clients show,
 // since ESPN's versions are mostly team and athlete metadata and sportsbook links.
 //
 // Scheduled games get their extras too, refreshed on a slow cadence (`pregameRefreshDue`),
 // so the injury report and line are there before tip-off.
 
+const { trimArticle } = require('./article');
 const { trimVideos } = require('./videos');
 
 // How often a scheduled game's summary is fetched. Injury news and line moves pick up close
@@ -19,6 +20,7 @@ function buildExtras(data) {
         lines: trimLines(data?.pickcenter),
         news: data?.news ?? null,
         videos: trimVideos(data?.videos),
+        article: trimArticle(data?.article),
     };
 }
 

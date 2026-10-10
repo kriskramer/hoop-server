@@ -7,6 +7,7 @@ const { ReactionCounter } = require('./reactions');
 const { toFirebaseSafe } = require('./sanitize');
 const { feedLag, LagMonitor } = require('./lag');
 const { buildExtras, pregameRefreshDue } = require('./extras');
+const { trimArticle, recapWatchDone, watchesRecap, RECAP_REFRESH_MS } = require('./article');
 const { buildRoster } = require('./roster');
 const { StandingsRefresher } = require('./standings');
 const { trimTeam, TeamRefresher } = require('./teams');
@@ -35,6 +36,13 @@ const writtenBoxScores = new Map();
 const writtenRosters = new Map();
 // eventId -> JSON of the extras last written, to skip unchanged writes.
 const writtenExtras = new Map();
+// eventId -> JSON of the recap article last written, so a new or revised recap counts as a
+// change for settling.
+const writtenArticles = new Map();
+// eventId -> { endedAt, updated, fetched, json } for settled games still checking for their
+// recap: when the game ended, when the stored recap last changed (undefined if there's none
+// yet), when the summary was last fetched (ms), and the stored recap's JSON.
+const recapWatches = new Map();
 // eventId -> when a scheduled game's summary was last fetched for its extras (ms).
 const pregameFetches = new Map();
 // eventId -> when a final game ended (ms), written into its header as `endedAt`. Kept here
@@ -116,6 +124,7 @@ const db = () => require('./firebase');
 
 async function processGame(event) {
     if (finalizedGames.has(event.id)) {
+        await checkRecap(event.id);
         return;
     }
 
@@ -152,12 +161,14 @@ async function processGame(event) {
     // Only runs once the writes succeeded, so a failure is retried on the next poll.
     if (state === 'final' && isSettled(event, changed, Date.now())) {
         finalizedGames.add(event.id);
+        watchRecap(event);
         finalTracking.delete(event.id);
         writtenPlays.delete(event.id);
         writtenHeaders.delete(event.id);
         writtenBoxScores.delete(event.id);
         writtenRosters.delete(event.id);
         writtenExtras.delete(event.id);
+        writtenArticles.delete(event.id);
         endTimes.delete(event.id);
         stopCountingReactions(event.id);
         console.log(`Game settled, no longer refreshing -- ${event.id}`);
@@ -248,7 +259,7 @@ async function saveDetails(event, live) {
         console.log(`Updating game roster -- ${eventId}`);
     }
 
-    await saveExtras(eventId, data);
+    const articleChanged = await saveExtras(eventId, data);
 
     // Plays are absent until tip-off.
     let playsChanged = false;
@@ -258,21 +269,67 @@ async function saveDetails(event, live) {
     if (gameState(event) === 'final') {
         await saveEndTime(event, data.plays);
     }
-    return boxChanged || playsChanged;
+    return boxChanged || playsChanged || articleChanged;
 }
 
-// The injury report, betting line, news, and highlight clips. Kept apart from the box score so
-// clients listening to live stats don't re-download them on every update. Not counted as a
-// change for settling, because league news keeps changing long after a game ends.
+// The injury report, betting line, news, highlight clips and recap article. Kept apart from
+// the box score so clients listening to live stats don't re-download them on every update.
+// Returns whether the recap article changed: only that counts as a change for settling,
+// because league news keeps changing long after a game ends.
 async function saveExtras(eventId, data) {
     const extras = buildExtras(data);
     const json = JSON.stringify(extras);
+    const articleJson = JSON.stringify(extras.article);
+    const articleChanged = extras.article !== null && writtenArticles.get(eventId) !== articleJson;
     if (writtenExtras.get(eventId) === json) {
-        return;
+        return false;
     }
     await db().writeGameExtras(eventId, extras);
     writtenExtras.set(eventId, json);
+    writtenArticles.set(eventId, articleJson);
     console.log(`Updating game extras -- ${eventId}`);
+    return articleChanged;
+}
+
+// Starts checking a game that just settled for its recap, unless the stored one has already
+// stopped changing. Recaps often come out after a game's box score and plays have settled.
+function watchRecap(event) {
+    if (!watchesRecap(event)) return;
+    const stored = writtenArticles.get(event.id);
+    const article = stored === undefined ? null : JSON.parse(stored);
+    const now = Date.now();
+    const watch = {
+        endedAt: endTimes.get(event.id) ?? now,
+        updated: article ? (Date.parse(article.updated) || now) : undefined,
+        fetched: now,
+        json: stored,
+    };
+    if (!recapWatchDone(watch, now)) recapWatches.set(event.id, watch);
+}
+
+// For a settled game, fetches the summary every 10 minutes and writes only the recap article
+// when it's new or revised, until it stops changing or the wait runs out.
+async function checkRecap(eventId) {
+    const watch = recapWatches.get(eventId);
+    if (!watch) return;
+    const now = Date.now();
+    if (recapWatchDone(watch, now)) {
+        recapWatches.delete(eventId);
+        console.log(`${watch.updated === undefined ? 'No recap' : 'Recap settled'}, no longer checking -- ${eventId}`);
+        return;
+    }
+    if (now - watch.fetched < RECAP_REFRESH_MS) return;
+    const { data } = await espn.getSummary(eventId);
+    const article = trimArticle(data?.article);
+    const json = JSON.stringify(article);
+    if (article && json !== watch.json) {
+        await db().set(`gameExtras/${eventId}/article`, toFirebaseSafe(article));
+        watch.json = json;
+        watch.updated = now;
+        console.log(`Updating recap -- ${eventId}`);
+    }
+    // Only recorded after a successful write, so a failure is retried on the next poll.
+    watch.fetched = now;
 }
 
 // Fetches a scheduled game's summary for its extras, hourly or every 10 minutes in the two

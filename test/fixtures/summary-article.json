@@ -1,0 +1,168 @@
+{
+  "article": {
+    "id": 48452846,
+    "nowId": "1-48452846",
+    "contentKey": "48452846-1-21-1",
+    "dataSourceIdentifier": "ce10f80b6fc2c",
+    "publishedkey": "nba401811026",
+    "type": "Recap",
+    "gameId": "401811026",
+    "headline": "Jalen Duren scores 20 points and the Detroit Pistons beat the Charlotte Hornets 118-100",
+    "description": "— Jalen Duren had 20 points, Duncan Robinson scored 19 and the Detroit Pistons beat Charlotte 118-100 on Friday night, locking the Hornets into the play-in tournament.",
+    "linkText": "Jalen Duren scores 20 points and the Detroit Pistons beat the Charlotte Hornets 118-100",
+    "categorized": "2026-04-11T02:29:59Z",
+    "originallyPosted": "2026-04-11T01:47:59Z",
+    "lastModified": "2026-04-11T01:51:00Z",
+    "published": "2026-04-11T01:47:59Z",
+    "section": "NBA",
+    "source": "AP",
+    "images": [
+      {
+        "type": "Media",
+        "name": "LaMelo Ball highlights vs. Detroit Pistons",
+        "caption": "LaMelo Ball highlights vs. Detroit Pistons",
+        "height": 324,
+        "width": 576,
+        "url": "https://a.espncdn.com/media/motion/wsc/2026/0411/66c47c03-598a-4677-89ff-66d7bc3575c9/66c47c03-598a-4677-89ff-66d7bc3575c9.jpg"
+      }
+    ],
+    "video": [],
+    "categories": [
+      {
+        "id": 9577,
+        "type": "league",
+        "uid": "s:40~l:46",
+        "guid": "7b3729c9-7f69-308a-bf8a-ee15a6aba154",
+        "description": "NBA",
+        "sportId": 46,
+        "leagueId": 46,
+        "league": {
+          "id": 46,
+          "description": "NBA",
+          "abbreviation": "NBA",
+          "links": {
+            "mobile": {
+              "leagues": {
+                "href": "https://www.espn.com/nba/"
+              }
+            },
+            "web": {
+              "leagues": {
+                "href": "https://www.espn.com/nba/"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 127884,
+        "type": "team",
+        "uid": "s:40~l:46~t:30",
+        "guid": "377633c2-0dd1-91a1-83c0-9ed2d0c00ea1",
+        "description": "Charlotte Hornets",
+        "sportId": 46,
+        "teamId": 30,
+        "team": {
+          "id": 30,
+          "description": "Charlotte Hornets",
+          "abbreviation": "CHA",
+          "shortDisplayName": "Hornets",
+          "links": {
+            "mobile": {
+              "teams": {
+                "href": "https://www.espn.com/nba/team/_/name/cha/charlotte-hornets"
+              }
+            },
+            "web": {
+              "teams": {
+                "href": "https://www.espn.com/nba/team/_/name/cha/charlotte-hornets"
+              }
+            }
+          }
+        }
+      },
+      {
+        "id": 4422,
+        "type": "team",
+        "uid": "s:40~l:46~t:8",
+        "guid": "4e096981-dc02-51d0-3dcd-2468fcc1e22d",
+        "description": "Detroit Pistons",
+        "sportId": 46,
+        "teamId": 8,
+        "team": {
+          "id": 8,
+          "description": "Detroit Pistons",
+          "abbreviation": "DET",
+          "shortDisplayName": "Pistons",
+          "links": {
+            "mobile": {
+              "teams": {
+                "href": "https://www.espn.com/nba/team/_/name/det/detroit-pistons"
+              }
+            },
+            "web": {
+              "teams": {
+                "href": "https://www.espn.com/nba/team/_/name/det/detroit-pistons"
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "event",
+        "uid": "s:40~l:46~e:401811026",
+        "guid": "9421f6d4-91fc-3794-85c9-f484cb361c72",
+        "description": "Detroit Pistons @ Charlotte Hornets",
+        "eventId": 401811026,
+        "event": {
+          "id": 401811026,
+          "sport": "basketball",
+          "league": "nba",
+          "description": "Detroit Pistons @ Charlotte Hornets",
+          "links": {
+            "mobile": {
+              "event": {
+                "href": "https://www.espn.com/nba/game/_/gameId/401811026"
+              }
+            },
+            "web": {
+              "event": {
+                "href": "https://www.espn.com/nba/game/_/gameId/401811026"
+              }
+            }
+          }
+        }
+      }
+    ],
+    "keywords": [
+      "NBA",
+      "Charlotte Hornets",
+      "Detroit Pistons",
+      "Detroit Pistons @ Charlotte Hornets"
+    ],
+    "story": "CHARLOTTE, N.C. -- — <a href=\"http://www.espn.com/nba/player/_/id/4433621/jalen-duren\">Jalen Duren</a> had 20 points, <a href=\"http://www.espn.com/nba/player/_/id/3157465/duncan-robinson\">Duncan Robinson</a> scored 19 and the <a href=\"http://www.espn.com/nba/team/_/name/det/detroit-pistons\">Detroit Pistons</a> beat Charlotte 118-100 on Friday night, <a href=\"https://x.com/NBAPR/status/2042616338506518954?s=20\">locking the Hornets into the play-in tournament</a>.\n\n\r\n              Already assured of the top seed in the Eastern Conference, the Pistons played their regular starters against the Hornets.\n\n\r\n              <a href=\"http://www.espn.com/nba/player/_/id/4432166/cade-cunningham\">Cade Cunningham</a> scored 14 points, <a href=\"http://www.espn.com/nba/player/_/id/4683771/ronald-holland-ii\">Ronald Holland II</a> had 13 and <a href=\"http://www.espn.com/nba/player/_/id/4684742/ausar-thompson\">Ausar Thompson</a> added 12 for Detroit, which is one win shy of its first 60-win season in 20 years with one regular-season game remaining. Duren also had a game-high nine rebounds.\n\n\r\n              <a href=\"http://www.espn.com/nba/player/_/id/4432816/lamelo-ball\">LaMelo Ball</a> had 27 points and eight assists and <a href=\"http://www.espn.com/nba/player/_/id/4433287/brandon-miller\">Brandon Miller</a> had 22 points to lead the Hornets.\n\n\r\n              Through late in the third quarter, the lead had changed hands 11 times with 13 ties and neither team led by more than eight.\n\n\r\n              But Charlotte held its last lead at 83-82 with 5:52 left in the third quarter and after the teams were last tied at 87 with 2:46 left in that period, Detroit went on a 24-8 burst for a 111-92 lead with 6:23 to play.\n\n\r\n              A sellout crowd of 19,623 for the Hornets’ home finale saw the teams go at it from the outset.\n\n\r\n              That included double technicals assessed to Charlotte’s Miller and Detroit’s Robinson after Miller landed on Robinson and Robinson shoved him away after Miller’s dunk less than two minutes into the game.\n\n\r\n              <hl2>Up next</hl2>\r\n              Pistons: Visit Indiana on Sunday.\n\n\r\n              Hornets: Visit New York on Sunday for their regular-season finale.\n\n\r\n              ------\n\n\r\n              AP NBA: <a href=\"https://apnews.com/hub/nba\">https://apnews.com/hub/nba</a>",
+    "allowComments": true,
+    "allowContentReactions": false,
+    "allowSearch": true,
+    "isLiveBlog": false,
+    "links": {
+      "api": {
+        "self": {
+          "href": "https://content.core.api.espn.com/v1/sports/news/48452846"
+        }
+      },
+      "app": {
+        "sportscenter": {
+          "href": "sportscenter://x-callback-url/showStory?uid=48452846"
+        }
+      },
+      "mobile": {
+        "href": "http://m.espn.go.com/nba/story?storyId=48452846"
+      },
+      "web": {
+        "href": "http://www.espn.com/nba/recap?gameId=401811026"
+      }
+    },
+    "premium": false
+  }
+}

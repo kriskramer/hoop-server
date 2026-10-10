@@ -81,9 +81,9 @@ test('picks the highest-priority sportsbook that has a line', () => {
 
 test('builds extras without ESPN\'s raw injuries, pickcenter, odds or ATS records', () => {
     const extras = buildExtras({ ...fixture, news: { header: 'NBA News' }, videos: [] });
-    assert.deepStrictEqual(Object.keys(extras), ['injuryReport', 'lines', 'news', 'videos']);
+    assert.deepStrictEqual(Object.keys(extras), ['injuryReport', 'lines', 'news', 'videos', 'article']);
     assert.ok(JSON.stringify(extras).length < 4000, 'trimmed extras stay small');
-    assert.deepStrictEqual(buildExtras({}), { injuryReport: [], lines: null, news: null, videos: [] });
+    assert.deepStrictEqual(buildExtras({}), { injuryReport: [], lines: null, news: null, videos: [], article: null });
 });
 
 test('refreshes scheduled games hourly, and every 10 minutes close to tip-off', () => {

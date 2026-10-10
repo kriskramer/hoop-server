@@ -53,6 +53,7 @@ flowchart LR
 | `players.js` | `trimPlayer` cuts a player's bio, game log, splits and career down to `players/{athleteId}`. `PlayerRefresher` refreshes every player on the rosters the team refresher reports, at startup and daily, and a game's two rosters 3 minutes after it goes final. |
 | `teams.js` | `trimTeam` cuts a team's roster, schedule, statistics and leaders down to `teams/{teamId}`; `TeamRefresher` refreshes every team at startup and daily, and a game's two teams 3 minutes after it goes final, one team at a time in the background, and writes a team only when it changed. |
 | `extras.js` | `buildExtras(summary)` builds `gameExtras/{eventId}`: `trimInjuries` and `trimLines` cut the injury report and the sportsbook line down to what clients show. `pregameRefreshDue` decides when a scheduled game's summary is fetched again. |
+| `article.js` | `trimArticle` cuts the summary's `article` (the AP recap) down to its headline, summary, link and story, parsing the story's HTML into paragraphs of text runs with player and team ids. `recapWatchDone` decides when a settled game stops checking for its recap. |
 | `roster.js` | `buildRoster(boxscore)` turns the summary's player tables into `gameRosters/{eventId}`: each athlete's name, short name, jersey, team, and starter flag. |
 | `lag.js` | `feedLag` compares a live game's scoreboard clock and score with its last play; `LagMonitor` logs once when the play-by-play has been more than 90 s or 7 points behind for a minute, and once when it catches up. Log only: an ESPN feed stall can't be fixed here. |
 | `schedule.js` | `gameState` classifies ESPN game status; `nextPollDelay` decides how long to wait before the next poll based on the games just seen. Pure, so it's tested without network or Firebase. |
@@ -179,6 +180,8 @@ ESPN keeps correcting a game after it ends. In the 2026-10-03 MIA @ TOR preseaso
 - **Cap**: `FINAL_MAX_MS` (3 h) has passed since it was first seen as final, in case ESPN never stops changing it.
 - **Old game**: it started more than `SETTLED_AFTER_START_MS` (12 h) ago, for example a game found by the startup backfill. Those corrections have long settled, so it's finished after one write.
 
+A new or revised recap article counts as a change, like the box score and plays; the rest of `gameExtras` doesn't. The AP recap usually comes 10–30 minutes after the final, sometimes hours later, and is often revised for an hour, so a regular-season or playoff game that settles first keeps a recap watch (`recapWatches`): every 10 minutes (`RECAP_REFRESH_MS`) it fetches the summary and writes only `gameExtras/{eventId}/article` when it changed, until the recap has gone an hour without changing (`RECAP_QUIET_MS`) or 12 hours have passed since the game ended (`RECAP_WAIT_MS`). Preseason games have no recaps, so they aren't watched. Settled games stay on the polled scoreboards until the next ET day ends, which covers the 12 hours.
+
 While any game is settling, the scheduler stays in fast mode. A game is added to `finalizedGames` only after its writes succeed, so a failed write is retried on the next poll. All of this state lives in memory, so after a restart the backfill writes each finished game once more. Corrections ESPN makes later than the settle window, such as next-day stat corrections, are only picked up when the server restarts.
 
 ## Firebase data model
@@ -190,7 +193,7 @@ gameHeaders/{eventId}         = <scoreboard event>                 ~13 KB
 gameBoxScores/{eventId}       = { boxscore, leaders, gameInfo }    ~40 KB
 gameRosters/{eventId}/{athleteId} = { name, short, jersey, teamId, starter }  ~2–3 KB
 gamePlays/{eventId}/{playKey} = <play> + order + winProbability    ~0.6 KB per play
-gameExtras/{eventId}          = { injuryReport, lines, news, videos }  ~20 KB, mostly news
+gameExtras/{eventId}          = { injuryReport, lines, news, videos, article }  ~20 KB, mostly news
 gameReactionCounts/{eventId}/{playKey} = { cheer: 3, wow: 1 }      ~40 B per play (non-zero totals only)
 standings                     = { season, seasonType, updatedAt, east, west, divisions }  ~6.5 KB
 teams/{teamId}                = { season, statsSeason, coach, roster, schedule, stats, leaders, updatedAt }  ~11 KB
@@ -204,7 +207,7 @@ players/{athleteId}           = { bio, injury, ranks, season, averages, log, spl
   - **Key**: the play's `sequenceNumber`, zero-padded to six digits (`000142`). Sequence numbers are unique within a game and never change.
   - **`order`**: the play's position in ESPN's list. **Clients must sort by `order`, not by key.** ESPN lists plays in game-clock order, but sequence numbers follow the order plays were entered, so a play logged late has a higher number than the plays around it (5 of 6 games checked had such plays).
   - **`winProbability`**: `{ homeWinPercentage, tiePercentage }` for that play, or `null`.
-- **`gameExtras`** holds the summary's injury report and betting line (both trimmed by `extras.js`), league news, and highlight clips. Scheduled games get it too, from a summary fetched hourly, and every 10 minutes in the two hours before tip-off, so the injury report and line are there before the game. It's separate from `gameBoxScores` so live box score listeners don't re-download it, and its changes don't delay [settling](#settling-after-the-final-buzzer). See [espn-data.md](espn-data.md#injuries-odds-news-and-highlights-gameextras).
+- **`gameExtras`** holds the summary's injury report and betting line (both trimmed by `extras.js`), league news, highlight clips, and the AP recap article (trimmed by `article.js`). Scheduled games get it too, from a summary fetched hourly, and every 10 minutes in the two hours before tip-off, so the injury report and line are there before the game. It's separate from `gameBoxScores` so live box score listeners don't re-download it, and its changes, other than the recap's, don't delay [settling](#settling-after-the-final-buzzer). See [espn-data.md](espn-data.md#injuries-odds-news-and-highlights-gameextras).
 - **`standings`** holds both conferences' regular-season standings and their divisions, trimmed to about 6.5 KB. It's written whole, only when it changed. See [espn-data.md](espn-data.md#standings-standings).
 - **`teams/{teamId}`** holds one team's roster, regular-season schedule, season stats and leaders, trimmed to about 11 KB. It's written whole, only when it changed. See [espn-data.md](espn-data.md#team-pages-teamsteamid).
 - **`players/{athleteId}`** holds one rostered player's bio, the season's game log and splits, and career averages, trimmed to about 15–25 KB. It's written whole, only when it changed. See [espn-data.md](espn-data.md#player-pages-playersathleteid).
@@ -222,7 +225,7 @@ Polls with no play changes send nothing to `gamePlays`. The first write for a ga
 
 Replaying a real game (506 plays) poll by poll sent 371 KB in total, averaging 2.8 plays per update. The largest update was 68 plays, after a late-logged play was inserted mid-list. Rewriting the whole node on every poll would have sent the full node (up to about 290 KB) each time.
 
-The rest of the summary (series, recap article, videos, and so on) is dropped. The old NBA-format paths (`gameHeader22`, `gameData22`, `gamePbp22`) are no longer written.
+The rest of the summary (series, broadcasts, and so on) is dropped. The old NBA-format paths (`gameHeader22`, `gameData22`, `gamePbp22`) are no longer written.
 
 ### Changed-field writes
 
